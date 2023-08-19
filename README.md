@@ -1,4 +1,4 @@
-# capstone
+# Capstone 2020 - Natural disaster prediction (VIT UNIVERSITY)
 Natural disaster prediction using deep learning and machine learning
 
 Tech Used: Flask, ML, HTML, JS
