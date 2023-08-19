@@ -1,7 +1,11 @@
 # capstone
-Natural disaster prediction using deep learning and machine learning
+Natural disaster prediction using deep learning and machine learning 
+Tech Used: Flask, ML, HTML, JS
 
-run prediction.py 
+python model.py
+python prediction.py // contains code for all the models
 
 Demo
-<iframe width="560" height="315" src="https://www.youtube.com/embed/Gad5vz1Pkcc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+[<img src="https://img.youtube.com/vi/Gad5vz1Pkcc/hqdefault.jpg" width="600" height="300"
+/>](https://www.youtube.com/embed/Gad5vz1Pkcc)
+
