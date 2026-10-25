@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(
         default="", validation_alias=AliasChoices("NDP_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
     )
-    anthropic_model: str = "claude-sonnet-5-5"
+    anthropic_model: str = "claude-opus-5-5"
     assistant_max_tool_rounds: int = 6
     guidance_dir: Path = PROJECT_DIR / "data" / "guidance"
 

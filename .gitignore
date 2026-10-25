@@ -24,3 +24,6 @@ src/ndp/static/generated/
 .vscode/
 .idea/
 .DS_Store
+
+# Runtime state (watcher dedupe etc.)
+state/
