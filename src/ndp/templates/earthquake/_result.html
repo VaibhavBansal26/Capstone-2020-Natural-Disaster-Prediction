@@ -5,7 +5,9 @@
   {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
 {% elif result is defined and result %}
   {% set tone = {'minor': 'ok', 'light': 'info', 'moderate': 'warn', 'strong': 'danger'}.get(result.severity, 'muted') %}
-  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.alert else 'border-slate-200 bg-white' }} p-5">
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.alert else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Estimated magnitude {{ fmt(result.magnitude, 1) }}, {{ result.severity }}.{% if result.alert %} Earthquake alert: this is at or above the magnitude 6 alert threshold. Say find nearby help to see hospitals and police.{% else %} Below the alert threshold.{% endif %}"
+       {% if result.alert %}data-speak-priority="alert"{% endif %}>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Estimated magnitude</h3>
       <div class="flex items-center gap-2">
@@ -20,12 +22,37 @@
     </div>
     <p class="mt-4 text-sm text-slate-600">
       {% if result.alert %}
-        An event of this size at this location and depth would be classed as <strong>strong</strong>. In the original project this triggered an alert to the configured contacts.
+        An event of this size at this location and depth would be classed as <strong>strong</strong>. Use the button below to find hospitals and police nearby and alert the configured contacts.
       {% else %}
         Below the alert threshold. Severity bands: minor (&lt;4), light (4–5), moderate (5–6), strong (≥6).
       {% endif %}
     </p>
     {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+
+    {% set _i = inputs if inputs is defined else {} %}
+    <div class="mt-5 border-t {{ 'border-rose-200' if result.alert else 'border-slate-200' }} pt-4">
+      {% if auto_alert is defined and auto_alert %}
+        <p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+          Automatic alert queued: the configured contacts are being notified with the nearest hospitals and police in the message. The outcome appears in the recent-queries table below.
+        </p>
+      {% endif %}
+      <form method="post" action="{{ url_for('alerts_nearby') }}"
+            hx-post="{{ url_for('alerts_nearby') }}" hx-target="#nearby" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="lat" value="{{ _i.get('lat', '') }}">
+        <input type="hidden" name="lon" value="{{ _i.get('lon', '') }}">
+        <input type="hidden" name="depth" value="{{ _i.get('depth', '') }}">
+        <input type="hidden" name="date" value="{{ _i.get('date', '') }}">
+        <input type="hidden" name="magnitude" value="{{ fmt(result.magnitude) }}">
+        <button type="submit" data-voice-command="find nearby help"
+                class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium {{ 'bg-rose-600 text-white hover:bg-rose-700' if result.alert else 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}">
+          Find nearby hospitals and police
+          <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-current/40 border-t-current animate-spin"></span>
+        </button>
+        <span class="text-xs text-slate-500">Searches OpenStreetMap around this location, then lets you alert your contacts.</span>
+      </form>
+      <div id="nearby" class="mt-4" aria-live="polite"></div>
+    </div>
     <p class="mt-4 text-xs text-slate-500">Neural-network regression over the USGS significant-earthquakes catalogue (latitude, longitude, depth, date). Not a forecast.</p>
   </div>
 {% endif %}

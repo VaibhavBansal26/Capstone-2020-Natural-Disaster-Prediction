@@ -30,7 +30,7 @@
             {% if row.score is not none %}
               {% include "sentiment/_score.html" %}
             {% else %}
-              <button type="button" hx-get="{{ url_for('sentiment_score', slug=row.slug) }}" hx-target="#score-{{ row.slug }}" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+              <button type="button" data-voice-command="score {{ row.name|lower }}" hx-get="{{ url_for('sentiment_score', slug=row.slug) }}" hx-target="#score-{{ row.slug }}" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
                       class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                 Load score
                 <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin"></span>

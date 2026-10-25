@@ -80,5 +80,16 @@ def test_api_validation_errors_are_422(client):
     assert resp.status_code == 422
 
 
-def test_covid_hidden_by_default(client):
-    assert client.get("/covid").status_code == 404
+def test_covid_page_is_on_by_default(client):
+    assert client.get("/covid").status_code == 200
+    assert client.get("/covid/maps").status_code == 200
+
+
+def test_earthquake_page_prefills_from_query_string(client):
+    html = client.get("/earthquake?lat=32.38&lon=93.78&depth=18").text
+    assert 'value="32.38"' in html and 'value="93.78"' in html and 'value="18"' in html
+
+
+def test_earthquake_page_ignores_bad_query_values(client):
+    html = client.get("/earthquake?lat=999&lon=abc&depth=-5").text
+    assert 'value="28.6"' in html and 'value="77.2"' in html

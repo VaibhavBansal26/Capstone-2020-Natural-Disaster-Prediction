@@ -1,4 +1,6 @@
-"""Archived 2020 COVID module. Mounted only when NDP_ENABLE_COVID=true."""
+"""COVID-19 pages: live totals, the 2020 India case curve, test centres and maps.
+
+Mounted unless NDP_ENABLE_COVID=false."""
 
 from __future__ import annotations
 
@@ -6,8 +8,10 @@ from datetime import date
 
 from fastapi import APIRouter, Form, HTTPException, Request
 
-from ndp.forms import FormError, parse_date
+from ndp.forms import FormError, parse_date, parse_float
 from ndp.ml import covid, registry
+from ndp.ml.features import DataMissing
+from ndp.services import ServiceError, covidstats, geo
 from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/covid")
@@ -17,13 +21,20 @@ PLOTS = [
 ]
 
 
+def _centres_count() -> int | None:
+    try:
+        return len(covid.test_centres())
+    except DataMissing:
+        return None
+
+
 def _page_context() -> dict:
     meta = registry.metadata(covid.MODEL) or {}
     return {
         "meta": meta or None,
         "trained": registry.is_trained(covid.MODEL),
         "plots": PLOTS,
-        "centres_count": len(covid.test_centres()),
+        "centres_count": _centres_count(),
         "last_data_date": meta.get("last_date"),
         "today": date.today().isoformat(),
     }
@@ -73,6 +84,13 @@ def _feature(lat: float, lon: float, props: dict) -> dict:
 
 @router.get("/data/{layer}", name="covid_geojson")
 def covid_geojson(layer: str) -> dict:
+    try:
+        return _geojson(layer)
+    except DataMissing as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _geojson(layer: str) -> dict:
     if layer == "centres":
         feats = [
             _feature(
@@ -120,3 +138,35 @@ def covid_geojson(layer: str) -> dict:
     else:
         raise HTTPException(status_code=404, detail="unknown layer")
     return {"type": "FeatureCollection", "features": feats}
+
+
+@router.get("/stats", name="covid_stats")
+def covid_stats(request: Request):
+    """Live world and India totals; loaded by HTMX when the page opens so it never blocks."""
+    try:
+        rows = [covidstats.world(), covidstats.india()]
+    except ServiceError as exc:
+        return render(request, "covid/_stats.html", error=str(exc))
+    return render(request, "covid/_stats.html", rows=rows)
+
+
+@router.post("/centres", name="covid_centres")
+def covid_centres(
+    request: Request, place: str = Form(""), lat: str = Form(""), lon: str = Form("")
+):
+    """Nearest ICMR test centres to a place name or a coordinate."""
+    inputs = {"place": place, "lat": lat, "lon": lon}
+    try:
+        if place.strip():
+            found = geo.geocode(place.strip())
+            origin = {"name": found.name, "lat": found.lat, "lon": found.lon}
+        else:
+            f_lat = parse_float(lat, "Latitude", -90, 90)
+            f_lon = parse_float(lon, "Longitude", -180, 180)
+            origin = {"name": f"{f_lat:.3f}, {f_lon:.3f}", "lat": f_lat, "lon": f_lon}
+        centres = covid.nearest_centres(origin["lat"], origin["lon"], 5)
+    except (FormError, ServiceError) as exc:
+        return render(request, "covid/_centres.html", inputs=inputs, error=str(exc))
+    except DataMissing as exc:
+        return render(request, "covid/_centres.html", inputs=inputs, error=str(exc))
+    return render(request, "covid/_centres.html", inputs=inputs, origin=origin, centres=centres)

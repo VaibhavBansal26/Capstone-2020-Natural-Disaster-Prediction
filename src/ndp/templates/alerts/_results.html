@@ -33,6 +33,9 @@
       <span><span class="inline-block h-2.5 w-2.5 rounded-full bg-brand-700 align-middle mr-1"></span>police</span>
     </p>
 
+    {% if warning is defined and warning %}
+    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">{{ warning }} You can still send the alert below; it will just not list nearby facilities.</p>
+    {% endif %}
     {% if places %}
     <ul class="mt-4 divide-y divide-slate-100 text-sm">
       {% for p in places %}
@@ -47,26 +50,32 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">OpenStreetMap has no hospitals or police stations tagged within this radius. Try a larger radius.</p>
+    <p class="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">OpenStreetMap has no hospitals or police stations tagged within this radius. Offshore and remote epicentres often have none; try a larger radius. The alert below can still be sent.</p>
     {% endif %}
   </section>
 
   <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <h3 class="text-base font-semibold text-slate-900">Send an alert</h3>
-    <p class="mt-1 text-sm text-slate-500">Goes to the contacts configured on the server by email and/or SMS. Channels that are not configured are skipped and reported back.</p>
+    <p class="mt-1 text-sm text-slate-500">Goes to the contacts configured on the server by email and/or SMS, with the facilities above listed in the message. It does not contact the hospitals or police directly. You will be asked to confirm. Channels that are not configured are skipped and reported back.</p>
     {% set _default_msg -%}
 Emergency alert for {{ place.name }} ({{ fmt(place.lat, 3) }}, {{ fmt(place.lon, 3) }}).
 {% if hospitals %}Nearest hospitals: {% for h in hospitals[:3] %}{{ h.name }}{% if h.phone %} ({{ h.phone }}){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.{% endif %}
 {% if police %}Police: {% for s in police[:2] %}{{ s.name }}{% if s.phone %} ({{ s.phone }}){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.{% endif %}
 Please follow official guidance and move to safety.
     {%- endset %}
+    {% set _msg = message if (message is defined and message) else _default_msg|trim %}
     <form method="post" action="{{ url_for('alerts_send') }}"
           hx-post="{{ url_for('alerts_send') }}" hx-target="#sent" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+          hx-confirm="Send this alert to the configured contacts?"
           class="mt-4 space-y-4">
       <input type="hidden" name="place" value="{{ place.name }}">
-      {{ textarea('message', 'Message', value=_default_msg|trim, rows=5) }}
+      {{ textarea('message', 'Message', value=_msg, rows=7) }}
       {{ field('phone', 'Phone number (optional)', type='tel', value='', placeholder='+91 98765 43210', required=False, help='Overrides the configured SMS recipient for this alert only.') }}
-      {{ submit('Send alert') }}
+      <button type="submit" data-voice-command="send alert" data-voice-confirm
+              class="inline-flex items-center gap-2 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">
+        Send alert
+        <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+      </button>
     </form>
     <div id="sent" class="mt-4" aria-live="polite"></div>
   </section>

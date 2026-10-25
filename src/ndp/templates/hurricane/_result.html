@@ -6,7 +6,8 @@
 {% elif result is defined and result %}
   {% set cat = result.category %}
   {% set tone = 'danger' if result.is_hurricane else ('warn' if cat == 'Tropical storm' else 'ok') %}
-  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_hurricane else 'border-slate-200 bg-white' }} p-5">
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_hurricane else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Estimated maximum wind {{ '%.0f'|format(result.max_wind_kt) }} knots, {% if result.is_hurricane %}a {{ cat|lower }} hurricane{% else %}a {{ cat|lower }}{% endif %}.">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Estimated maximum sustained wind</h3>
       <div class="flex items-center gap-2">

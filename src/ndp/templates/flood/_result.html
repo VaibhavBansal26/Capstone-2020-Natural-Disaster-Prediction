@@ -4,7 +4,8 @@
   {{ error_box(error) }}
   {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
 {% elif result is defined and result %}
-  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_flood else 'border-slate-200 bg-white' }} p-5">
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_flood else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Estimated river level {{ '%.2f'|format(result.level_m) }} metres. {% if result.is_flood %}This is above the {{ '%.2f'|format(result.threshold_m) }} metre flood threshold: flood likely.{% else %}This is below the {{ '%.2f'|format(result.threshold_m) }} metre flood threshold: no flood expected.{% endif %}">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Estimated river level</h3>
       {% if result.is_flood %}{{ badge('Flood', 'danger') }}{% else %}{{ badge('No flood', 'ok') }}{% endif %}

@@ -20,5 +20,5 @@ pinned and reproducible. The manifest with original sources lives in
 | data.csv, flood1.csv | flood (sequence variant) | rainfall / dam / forest cover series |
 | weather_data.csv | storm classifier | hourly weather with description |
 | *_2015.csv, *_2016.csv, *_2018.csv, *_2011.csv, *_2013.csv | sentiment | scraped forum posts |
-| time_series_covid19_confirmed_global.csv | covid (archived) | JHU CSSE |
-| TestCentres_with_geolocation.csv, first.csv, firsti.csv, main.csv, state.csv | covid (archived) | 2020 snapshots |
+| time_series_covid19_confirmed_global.csv | covid  | JHU CSSE |
+| TestCentres_with_geolocation.csv, first.csv, firsti.csv, main.csv, state.csv | covid  | 2020 snapshots |

@@ -7,7 +7,9 @@
   {% set best = results|max(attribute='accuracy_pct') %}
   {% set _labels = {} %}
   {% if hazard is defined and hazard %}{% for f in hazard.input_fields %}{% set _ = _labels.update({f.name: f.label}) %}{% endfor %}{% endif %}
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
+  {% set _unit_words = {'m': 'metres', 'kt': 'knots', 'magnitude': 'magnitude'} %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5"
+       data-speak="{% if hazard is defined and hazard %}{{ hazard.title }}: {% endif %}best model is {{ best.name }}, predicting {{ '%.2f'|format(best.prediction) }}{% if _unit %} {{ _unit_words.get(_unit, _unit) }}{% endif %}, with {{ '%.0f'|format(best.accuracy_pct) }} percent accuracy.">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Four models, one input{% if hazard is defined and hazard %} · {{ hazard.title }}{% endif %}</h3>
       {{ badge('Best: ' ~ best.name, 'ok') }}

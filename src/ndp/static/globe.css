@@ -1,0 +1,44 @@
+/* Landing-page hero: dark "space" backdrop behind the globe (globe.gl renders with a transparent
+   background so this shows through, and it is also what the Leaflet fallback sits on). */
+.ndp-hero {
+  background-color: #02030a;
+  background-image:
+    radial-gradient(ellipse at 70% 45%, rgba(37, 99, 235, 0.18), transparent 60%),
+    url("https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/night-sky.png");
+  background-size: cover;
+  background-position: center;
+}
+.ndp-globe-wrap { position: relative; height: 55vh; min-height: 340px; }
+@media (min-width: 1024px) {
+  .ndp-stage { height: min(70vh, 640px); min-height: 460px; }
+  .ndp-globe-wrap { position: absolute; top: 0; bottom: 0; right: 0; left: 28%; height: auto; min-height: 0; }
+}
+.ndp-globe-canvas { position: absolute; inset: 0; cursor: grab; }
+.ndp-globe-canvas:active { cursor: grabbing; }
+/* Phones: let vertical swipes scroll the page instead of trapping them in the globe. */
+@media (pointer: coarse) { .ndp-globe-canvas canvas { touch-action: pan-y !important; } }
+.ndp-globe-canvas canvas:focus-visible { outline: 2px solid #93c5fd; outline-offset: -2px; }
+
+#ndp-fallback-map { position: absolute; inset: 0; background: #0b1220; }
+#ndp-fallback-map .leaflet-container { background: #0b1220; }
+
+.ndp-hero a:focus-visible, .ndp-hero button:focus-visible {
+  outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 0.375rem;
+}
+.ndp-chip { transition: background-color .15s, border-color .15s; }
+.ndp-spin { animation: ndp-spin 1s linear infinite; }
+@keyframes ndp-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ndp-spin { animation: none; }
+  .ndp-hero * { transition: none !important; }
+}
+/* globe.gl hover tooltip */
+.scene-tooltip { pointer-events: none; }
+.ndp-tip { font: 12px/1.35 system-ui, sans-serif; background: rgba(2,6,23,.92); color: #e2e8f0; border: 1px solid rgba(148,163,184,.35); border-radius: 6px; padding: 6px 8px; max-width: 230px; }
+.ndp-tip b { color: #fff; }
+
+/* Flat-map fallback: keep the map clear of the headline and match the dark theme. */
+@media (min-width: 1024px) { .ndp-is-fallback .ndp-globe-wrap { left: 42%; } }
+#ndp-fallback-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.7); }
+#ndp-fallback-map .leaflet-control-attribution { background: rgba(2, 6, 23, 0.7); color: #cbd5e1; }
+#ndp-fallback-map .leaflet-control-attribution a { color: #93c5fd; }

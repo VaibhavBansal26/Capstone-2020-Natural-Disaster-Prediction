@@ -60,6 +60,14 @@
       <noscript><p class="mt-2 px-2 text-xs text-slate-500">Enable JavaScript to see the live map.</p></noscript>
     </section>
 
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm" aria-labelledby="events-heading">
+      <h2 id="events-heading" class="text-base font-semibold text-slate-900">Strongest real earthquakes this week</h2>
+      <p class="mt-1 text-sm text-slate-500">Actual USGS reports, not model output. "Nearby help" lists hospitals and police around the epicentre and prepares an alert with the real magnitude.</p>
+      <div class="mt-3" id="events" hx-get="{{ url_for('earthquake_events') }}" hx-trigger="load" hx-swap="innerHTML" aria-live="polite">
+        <p class="text-sm text-slate-500">Loading…</p>
+      </div>
+    </section>
+
     {% if stats %}
     <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
       <h2 class="text-base font-semibold text-slate-900">Catalogue at a glance</h2>
@@ -89,7 +97,7 @@
               <td class="px-3 py-2 tabular-nums">{{ fmt(r.depth) }} km</td>
               <td class="px-3 py-2">{{ r.date }}</td>
               <td class="px-3 py-2 font-medium tabular-nums">{{ fmt(r.magnitude) }}</td>
-              <td class="px-3 py-2">{% if r.alert %}{{ badge('Alert', 'danger') }}{% else %}{{ badge('None', 'ok') }}{% endif %}</td>
+              <td class="px-3 py-2">{% if r.alert %}{{ badge('Alert', 'danger') }}{% if r.alert_status %}<span class="mt-1 block text-xs text-slate-500">{{ r.alert_status }}</span>{% endif %}{% else %}{{ badge('None', 'ok') }}{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>

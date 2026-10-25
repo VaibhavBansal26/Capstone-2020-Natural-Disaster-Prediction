@@ -48,12 +48,12 @@ DATASETS: tuple[Dataset, ...] = (
     Dataset("Nepal_Earthquake_2015.csv", "sentiment", "scraped forum posts"),
     Dataset("paul_Indonesia_tsunami_2018.csv", "sentiment", "scraped forum posts"),
     Dataset("phailin_cyclone_2013.csv", "sentiment", "scraped forum posts"),
-    Dataset("time_series_covid19_confirmed_global.csv", "covid (archived)", "JHU CSSE"),
-    Dataset("TestCentres_with_geolocation.csv", "covid (archived)", "ICMR test centres"),
-    Dataset("first.csv", "covid (archived)", "snapshot generated in 2020"),
-    Dataset("firsti.csv", "covid (archived)", "snapshot generated in 2020"),
-    Dataset("main.csv", "covid (archived)", "snapshot generated in 2020"),
-    Dataset("state.csv", "covid (archived)", "snapshot generated in 2020"),
+    Dataset("time_series_covid19_confirmed_global.csv", "covid", "JHU CSSE"),
+    Dataset("TestCentres_with_geolocation.csv", "covid", "ICMR test centres"),
+    Dataset("first.csv", "covid", "snapshot generated in 2020"),
+    Dataset("firsti.csv", "covid", "snapshot generated in 2020"),
+    Dataset("main.csv", "covid", "snapshot generated in 2020"),
+    Dataset("state.csv", "covid", "snapshot generated in 2020"),
 )
 
 

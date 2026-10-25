@@ -4,7 +4,8 @@
   {{ error_box(error) }}
   {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
 {% elif result is defined and result %}
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
+  <div class="rounded-xl border border-slate-200 bg-white p-5"
+       data-speak="The predicted weather for {{ result.city or 'the selected location' }} is {{ result.prediction }}. The current observation is {{ result.actual }}. {% if result.matched %}The prediction matched nearby stations.{% else %}The prediction did not match nearby stations.{% endif %}">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">{{ result.city or 'Selected location' }}</h3>
       {% if result.matched %}{{ badge('Prediction matched', 'ok') }}{% else %}{{ badge('Prediction not matched', 'warn') }}{% endif %}

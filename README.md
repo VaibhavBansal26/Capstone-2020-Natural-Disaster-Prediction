@@ -42,7 +42,9 @@ show a "not configured" notice instead of failing.
 | `NDP_OPENWEATHER_API_KEY` | Live weather page (OpenWeatherMap free tier) |
 | `NDP_SMTP_*`, `NDP_ALERT_*_EMAIL` | Alert emails (use an app password) |
 | `NDP_TWILIO_*`, `NDP_ALERT_TO_NUMBER` | Alert SMS |
-| `NDP_ENABLE_COVID` | Mounts the archived 2020 COVID module |
+| `NDP_ENABLE_COVID` | COVID-19 pages; on by default, set `false` to hide them |
+| `NDP_AUTO_ALERT` | Send the earthquake alert automatically at M >= 6 (default off) |
+| `NDP_ALERTS_DRY_RUN` | Compose and check alerts but send nothing |
 | `NDP_DEBUG` | Auto-reload and verbose errors |
 
 ## What is in the box
@@ -55,10 +57,48 @@ show a "not configured" notice instead of failing.
 | Hurricane | Linear regression, max wind from date and position | NOAA HURDAT2 |
 | Storm | Decision tree, weather description from observations | hourly weather sample |
 | Weather | Live KNN against nearby stations | OpenWeatherMap |
-| Alerts | Hospitals and police near a place, send email/SMS | OpenStreetMap (Nominatim, Overpass) |
+| Alerts | Hospitals and police near a place or epicentre, then alert your contacts by email/SMS | OpenStreetMap (Nominatim, Overpass), USGS |
 | Sentiment | SentiWordNet rule set over forum posts for seven disasters | scraped posts (2011-2018) |
 | Compare | Random forest, MLP, SVM and linear regression per hazard | as above |
-| COVID (flag) | 2020 case-count model, test-centre and state maps | JHU, ICMR snapshots |
+| COVID-19 | Live world and India totals, 2020 case-count model, nearest test centres, state and city maps | disease.sh, JHU, ICMR snapshots |
+
+### Voice
+
+The Voice button in the header reads results aloud (off by default; your choice is remembered),
+and the Speak button takes spoken input. Both use the browser's built-in speech support, so no
+keys, installs or servers are involved, and they appear only where the browser supports them.
+Every result also gets a small "Read aloud" button.
+
+Examples of what you can say on a form page: "latitude 28 point 6 longitude 77 point 2 depth
+ten", then "estimate". Also "open flood", "read result", "stop", "help", "find nearby help", and
+"send alert" followed by "confirm". Out-of-range values are refused rather than filled. The
+phrase list lives in `src/ndp/static/voice.js` and is covered by `tests/voice/`
+(`node --test tests/voice/*.test.mjs`, also run by pytest when Node is installed).
+
+### Landing page and language
+
+The home page shows a 3D globe (globe.gl) with this week's USGS earthquakes: hover for details,
+click to fly to one and jump to the estimate form for that location. Without WebGL it falls back
+to a flat map. The language picker uses Google Translate, loaded only after you choose a
+language other than English.
+
+### Earthquake alerts
+
+The 2020 app emailed and texted a hard-coded contact whenever its model predicted a magnitude
+above 6. That chain is back, with more care:
+
+1. **From the earthquake result**, the "Find nearby hospitals and police" button searches
+   OpenStreetMap around the location and prepares an alert listing the nearest hospitals and
+   police stations with their phone numbers where mapped.
+2. **From the live panel**, the week's strongest real USGS earthquakes each have a "Nearby help"
+   button that does the same with the reported magnitude, so the chain is usable with real events.
+3. **Sending** always asks for confirmation (also by voice: say "send alert", then "confirm"). The
+   message goes to the contacts configured in `.env`; it never contacts hospitals or police
+   directly. `NDP_ALERTS_DRY_RUN=true` checks everything without sending.
+4. **Automatic mode** (`NDP_AUTO_ALERT=true`) sends the alert as soon as the model result is
+   M >= 6. Be aware that the regression model is a weak illustration (R-squared near zero): across
+   the globe it returns roughly 5.8 to 5.95, so in practice it almost never reaches 6. Real events
+   come from the USGS panel.
 
 A JSON API mirrors the forms at `/api/v1/<hazard>/predict`; interactive docs at `/docs`.
 
@@ -97,9 +137,9 @@ NDP_DEBUG=true uv run ndp-serve
 - The earthquake pipeline no longer reshapes four feature columns into three.
 - All credentials moved to environment variables. The keys that were committed in 2020
   must be considered compromised and rotated.
-- Templates and static assets, previously only inside `capstone.rar`, are in the tree.
-  Google Maps, Google Translate, Web Speech scripts and jQuery were removed; maps use Leaflet
-  with OpenStreetMap tiles and the live USGS feed.
+- Templates and static assets, previously only inside `capstone.rar`, are in the tree. Google Maps
+  and jQuery were removed; maps use Leaflet with OpenStreetMap tiles and the live USGS feed. The
+  landing-page globe, voice features and language picker were rebuilt on current browser APIs.
 - MySQL dependency removed (it stored only the last few queries).
 - Datasets moved out of the working tree and are fetched by script.
 

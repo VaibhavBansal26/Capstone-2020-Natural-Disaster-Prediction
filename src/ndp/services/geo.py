@@ -58,6 +58,25 @@ def geocode(query: str) -> Place:
     return Place(name=hit.get("display_name", query), lat=float(hit["lat"]), lon=float(hit["lon"]))
 
 
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+
+
+def reverse_geocode(lat: float, lon: float) -> Place:
+    """Name for a coordinate; falls back to the coordinate itself so alerts never block on it."""
+    fallback = Place(name=f"{lat:.3f}, {lon:.3f}", lat=lat, lon=lon)
+    try:
+        with httpx.Client(timeout=10.0, headers={"User-Agent": USER_AGENT}) as client:
+            resp = client.get(
+                NOMINATIM_REVERSE_URL,
+                params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 10},
+            )
+            resp.raise_for_status()
+            name = resp.json().get("display_name")
+    except (httpx.HTTPError, ValueError):
+        return fallback
+    return Place(name=name, lat=lat, lon=lon) if name else fallback
+
+
 def _address(tags: dict) -> str:
     parts = [
         tags.get("addr:housenumber"),
@@ -91,6 +110,7 @@ def _nominatim_fallback(lat: float, lon: float, radius_km: float, limit: int) ->
     delta = radius_km / 111.0
     viewbox = f"{lon - delta},{lat + delta},{lon + delta},{lat - delta}"
     places: list[NearbyPlace] = []
+    answered = False
     with httpx.Client(timeout=15.0, headers={"User-Agent": USER_AGENT}) as client:
         for amenity, kind in (("hospital", "Hospital"), ("police", "Police")):
             try:
@@ -107,6 +127,7 @@ def _nominatim_fallback(lat: float, lon: float, radius_km: float, limit: int) ->
                 resp.raise_for_status()
             except httpx.HTTPError:
                 continue
+            answered = True
             for hit in resp.json():
                 places.append(
                     NearbyPlace(
@@ -118,12 +139,11 @@ def _nominatim_fallback(lat: float, lon: float, radius_km: float, limit: int) ->
                         phone="",
                     )
                 )
-    if not places:
+    if not answered:
         raise ServiceError(
-            "OpenStreetMap's Overpass service is busy and the fallback search found nothing; "
-            "please retry in a minute."
+            "OpenStreetMap's search services are busy right now; please retry in a minute."
         )
-    return places
+    return places  # may be empty: an offshore or remote area really can have nothing nearby
 
 
 def nearby_services(lat: float, lon: float, radius_km: float, limit: int = 40) -> list[NearbyPlace]:

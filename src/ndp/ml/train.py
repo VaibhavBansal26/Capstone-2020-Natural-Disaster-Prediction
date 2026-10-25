@@ -3,7 +3,7 @@
 uv run ndp-train                     # everything except covid
 uv run ndp-train --quick             # smaller compare subsample, no sentiment
 uv run ndp-train flood storm         # a subset
-uv run ndp-train --include-covid     # also the archived covid module
+uv run ndp-train --include-covid     # also the COVID-19 model (on by default)
 """
 
 from __future__ import annotations
@@ -63,7 +63,9 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
         help=f"subset to train; one of {', '.join(TRAINERS)} (default: all)",
     )
     parser.add_argument(
-        "--include-covid", action="store_true", help="also train the archived covid module"
+        "--include-covid",
+        action="store_true",
+        help="also train the COVID-19 model (included anyway while NDP_ENABLE_COVID is on)",
     )
     parser.add_argument("--skip-sentiment", action="store_true", help="skip the slow NLTK scoring")
     parser.add_argument(

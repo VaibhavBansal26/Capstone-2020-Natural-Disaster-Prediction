@@ -1,4 +1,4 @@
-"""Archived COVID-19 (India) module: cumulative-case forecast and 2020 map snapshots.
+"""COVID-19 (India) module: cumulative-case forecast and 2020 map snapshots.
 
 Trained only with ``ndp-train --include-covid`` (or ``NDP_ENABLE_COVID=true``).
 """
@@ -144,6 +144,24 @@ def test_centres() -> list[dict]:
             }
         )
     return out
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    import math
+
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi, dlmb = p2 - p1, math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 6371.0 * 2 * math.asin(math.sqrt(a))
+
+
+def nearest_centres(lat: float, lon: float, n: int = 5) -> list[dict]:
+    """ICMR test centres on file, closest first, each with a `distance_km` field."""
+    ranked = [
+        {**c, "distance_km": _haversine_km(lat, lon, c["lat"], c["lon"])} for c in test_centres()
+    ]
+    ranked.sort(key=lambda c: c["distance_km"])
+    return ranked[:n]
 
 
 def state_snapshot() -> list[dict]:

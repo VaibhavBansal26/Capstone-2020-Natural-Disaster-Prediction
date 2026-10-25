@@ -10,6 +10,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
   <script src="{{ url_for('static', path='app.js') }}" defer></script>
+  <script src="{{ url_for('static', path='voice.js') }}" defer></script>
+  <script src="{{ url_for('static', path='i18n.js') }}" defer></script>
   <script>
     tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eff6ff', 600:'#2563eb', 700:'#1d4ed8', 900:'#1e3a8a' } } } } }
   </script>
@@ -33,9 +35,9 @@
     ('compare_page', 'Compare'),
   ] %}
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="mx-auto max-w-7xl px-4 h-14 flex items-center gap-6">
+    <div class="mx-auto max-w-7xl px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-6">
       <a href="{{ url_for('index') }}" class="font-semibold tracking-tight text-brand-900 whitespace-nowrap">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 mr-2 align-middle"></span>Disaster Prediction
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 mr-2 align-middle"></span><span class="hidden min-[420px]:inline">Disaster Prediction</span><span class="min-[420px]:hidden">Disasters</span>
       </a>
       <nav class="hidden lg:flex items-center gap-1 text-sm">
         {% for endpoint, label in nav %}
@@ -43,16 +45,30 @@
              class="px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if request.url.path == url_for(endpoint).path else 'text-slate-600' }}">{{ label }}</a>
         {% endfor %}
         {% if settings.enable_covid %}
-          <a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600 hover:bg-rose-50">COVID (archived)</a>
+          <a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600 hover:bg-rose-50">COVID-19</a>
         {% endif %}
       </nav>
-      <details class="lg:hidden ml-auto relative">
+      <div id="ndp-tools" class="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <button type="button" id="ndp-voice-toggle" aria-pressed="false" hidden
+                class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-100 aria-pressed:bg-brand-600 aria-pressed:text-white aria-pressed:border-brand-600"
+                title="Read results aloud">
+          <span aria-hidden="true">&#128266;</span><span class="hidden sm:inline">Voice</span><span class="sr-only">Toggle reading results aloud</span>
+        </button>
+        <button type="button" id="ndp-mic" hidden
+                class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-100 aria-pressed:bg-rose-600 aria-pressed:text-white aria-pressed:border-rose-600"
+                aria-pressed="false" title="Speak a command or form values">
+          <span aria-hidden="true">&#127908;</span><span class="hidden sm:inline">Speak</span><span class="sr-only">Start voice input</span>
+        </button>
+        <label class="sr-only" for="ndp-lang">Language</label>
+        <select id="ndp-lang" class="w-[4.5rem] sm:w-auto sm:max-w-[7.5rem] rounded-md border border-slate-200 bg-white px-1 sm:px-1.5 py-1.5 text-sm text-slate-700" hidden></select>
+      </div>
+      <details class="lg:hidden relative">
         <summary class="list-none cursor-pointer px-2 py-1 rounded-md border border-slate-200 text-sm">Menu</summary>
         <div class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-sm flex flex-col">
           {% for endpoint, label in nav %}
             <a href="{{ url_for(endpoint) }}" class="px-2.5 py-1.5 rounded-md hover:bg-slate-100">{{ label }}</a>
           {% endfor %}
-          {% if settings.enable_covid %}<a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600">COVID (archived)</a>{% endif %}
+          {% if settings.enable_covid %}<a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600">COVID-19</a>{% endif %}
         </div>
       </details>
     </div>

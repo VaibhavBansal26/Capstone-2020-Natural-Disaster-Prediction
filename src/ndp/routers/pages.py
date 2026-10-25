@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_date, parse_float
-from ndp.ml import compare, flood, hurricane, registry, sentiment, storm, tsunami
+from ndp.ml import compare, covid, flood, hurricane, registry, sentiment, storm, tsunami
 from ndp.ml import earthquake as eq
 from ndp.web import page_or_partial, render
 
@@ -91,10 +91,10 @@ def index(request: Request):
     if settings.enable_covid:
         modules.append(
             {
-                "name": "COVID-19 (archived)",
-                "blurb": "2020 case-count model and test-centre map, kept behind a feature flag.",
+                "name": "COVID-19",
+                "blurb": "Live totals, the 2020 India case curve, and nearest ICMR test centres.",
                 "endpoint": "covid_page",
-                "status": "archived",
+                "status": _status(covid.MODEL),
             }
         )
     return render(request, "index.html", modules=modules)

@@ -1,68 +1,219 @@
 {% extends "base.html" %}
 {% from "partials/_form_bits.html" import status_pill %}
 {% block title %}Natural Disaster Prediction{% endblock %}
+
+{% block head %}
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', path='globe.css').path }}">
+  {# Heavy 3D library: loaded on this page only. Deferred scripts run in order, after Leaflet (base.html). #}
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.35.0/dist/globe.gl.min.js" defer></script>
+  <script src="{{ url_for('static', path='globe.js').path }}" defer></script>
+{% endblock %}
+
 {% block content %}
-<section class="rounded-2xl bg-gradient-to-br from-brand-900 via-brand-700 to-brand-600 text-white px-6 py-10 sm:px-10 sm:py-14 shadow-sm">
-  <p class="text-xs font-medium uppercase tracking-widest text-brand-50/80">VIT capstone 2020 · modernised</p>
-  <h1 class="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">Natural Disaster Prediction</h1>
-  <p class="mt-4 max-w-2xl text-sm sm:text-base text-brand-50/90">
-    A set of small machine-learning models, each trained once on a public historical dataset, that turn a handful
-    of inputs (a location, a date, a rainfall total) into a risk estimate: earthquake magnitude, tsunami magnitude,
-    river level, hurricane wind, storm class. Alongside them: a live weather check, an alerting helper that finds
-    hospitals and police stations near a place, social-media sentiment versus monetary impact, and a side-by-side
-    comparison of four regression models.
-  </p>
-  <p class="mt-4 max-w-2xl text-xs text-brand-50/70">
-    Originally submitted in 2020 as a Flask + Bootstrap project; rebuilt on FastAPI, HTMX and Leaflet with the
-    training code separated from the web layer. Outputs are statistical estimates, not operational forecasts or warnings.
-  </p>
-  <div class="mt-6 flex flex-wrap gap-3">
-    <a href="{{ url_for('earthquake_page') }}" class="rounded-md bg-white px-4 py-2 text-sm font-medium text-brand-900 hover:bg-brand-50">Try the earthquake model</a>
-    <a href="{{ url_for('compare_page') }}" class="rounded-md border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Compare models</a>
+{% set icons = {
+  'earthquake_page': '🌍', 'tsunami_page': '🌊', 'flood_page': '💧', 'hurricane_page': '🌀',
+  'storm_page': '⛈️', 'weather_page': '🌤️', 'alerts_page': '🚨', 'sentiment_page': '💬',
+  'compare_page': '📊', 'covid_page': '🦠'
+} %}
+
+{# ------------------------------------------------------------------ HERO ------------------------------------------------------------------ #}
+<section class="ndp-hero relative overflow-hidden rounded-2xl text-white shadow-lg ring-1 ring-slate-800" aria-labelledby="hero-heading" id="ndp-hero">
+  <div class="ndp-stage relative">
+  <div class="relative z-10 px-5 pt-8 pb-4 sm:px-10 sm:pt-12 lg:pt-14 lg:w-[46%] lg:pointer-events-none">
+    <p class="text-xs font-medium uppercase tracking-widest text-sky-300">Capstone Project 2020 &middot; VIT University</p>
+    <h1 id="hero-heading" class="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight leading-tight">Natural Disaster Prediction</h1>
+    <p class="mt-4 max-w-xl text-sm sm:text-base text-slate-200">
+      Machine-learning estimates for earthquakes, tsunamis, floods, hurricanes and storms, next to a live
+      view of every earthquake the USGS recorded this week.
+    </p>
+    <div class="mt-6 flex flex-wrap gap-3 lg:pointer-events-auto">
+      <a href="{{ url_for('earthquake_page').path }}" class="rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-sky-100">Estimate an earthquake</a>
+      <a href="{{ url_for('compare_page').path }}" class="rounded-md border border-white/50 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Compare models</a>
+    </div>
+    <p class="mt-5 text-xs text-slate-300" id="ndp-globe-hint">Drag the globe to spin it. Click a quake for details.</p>
+  </div>
+
+  <div class="ndp-globe-wrap" id="ndp-globe-wrap">
+    {# Globe canvas. role=img: the aria-label is rewritten by globe.js with the live counts. #}
+    <div id="ndp-globe" class="ndp-globe-canvas notranslate" translate="no" role="img"
+         aria-label="Interactive 3D globe of earthquakes of magnitude 2.5 and above in the past week. Loading."
+         data-feed="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson"
+         data-estimate-url="{{ url_for('earthquake_page').path }}"
+         data-tex-globe="https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/earth-night.jpg"
+         data-tex-bump="https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/earth-topology.png"></div>
+    {# Leaflet fallback when WebGL or globe.gl is unavailable #}
+    <div id="ndp-fallback-map" class="notranslate" translate="no" hidden role="region" aria-label="World map of earthquakes in the past week"></div>
+    <p id="ndp-fallback-msg" class="absolute inset-0 hidden items-center justify-center p-6 text-center text-sm text-slate-200" role="status"></p>
+
+    <p id="ndp-globe-loading" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 text-xs text-slate-200 pointer-events-none">
+      <span class="ndp-spin inline-block h-3 w-3 rounded-full border-2 border-slate-500 border-t-sky-300" aria-hidden="true"></span>Loading globe&hellip;
+    </p>
+
+    {# Detail card for a clicked quake #}
+    <div id="ndp-quake-card" hidden role="region" aria-label="Selected earthquake" tabindex="-1"
+         class="absolute right-3 top-3 z-20 w-[min(18rem,calc(100%-1.5rem))] rounded-xl border border-white/20 bg-slate-950/90 p-4 text-sm text-slate-100 shadow-xl backdrop-blur">
+      <button type="button" id="ndp-quake-close" aria-label="Close earthquake details"
+              class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-white/10">&times;</button>
+      <p class="text-xs uppercase tracking-wide text-slate-400">Magnitude</p>
+      <p class="notranslate text-3xl font-semibold leading-none" id="ndp-q-mag"></p>
+      <p class="mt-2 font-medium" id="ndp-q-place"></p>
+      <p class="mt-1 text-xs text-slate-300" id="ndp-q-meta"></p>
+      <div class="mt-3 flex flex-col gap-2">
+        <a id="ndp-q-estimate" href="#" class="rounded-md bg-sky-500 px-3 py-1.5 text-center text-xs font-semibold text-slate-950 hover:bg-sky-400">Estimate for this location</a>
+        <a id="ndp-q-usgs" href="#" target="_blank" rel="noopener noreferrer" class="rounded-md border border-white/30 px-3 py-1.5 text-center text-xs text-white hover:bg-white/10">USGS event page <span class="sr-only">(opens in a new tab)</span></a>
+      </div>
+    </div>
+
+    {# Live counters #}
+    <div class="absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-end justify-between gap-2">
+      <dl class="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-sm w-full sm:w-auto" id="ndp-counters">
+        <div class="bg-slate-950/75 px-3 py-2 sm:px-4">
+          <dt class="text-[10px] uppercase tracking-wide text-slate-300">Quakes this week</dt>
+          <dd class="notranslate text-xl font-semibold tabular-nums" id="ndp-c-total">&ndash;</dd>
+        </div>
+        <div class="bg-slate-950/75 px-3 py-2 sm:px-4">
+          <dt class="text-[10px] uppercase tracking-wide text-slate-300">Strongest</dt>
+          <dd class="text-xl font-semibold tabular-nums"><span class="notranslate" id="ndp-c-max">&ndash;</span></dd>
+          <dd class="max-w-[7.5rem] truncate text-[11px] text-slate-300 sm:max-w-[14rem]" id="ndp-c-max-place"></dd>
+        </div>
+        <div class="bg-slate-950/75 px-3 py-2 sm:px-4">
+          <dt class="text-[10px] uppercase tracking-wide text-slate-300">M5 and above</dt>
+          <dd class="notranslate text-xl font-semibold tabular-nums" id="ndp-c-m5">&ndash;</dd>
+        </div>
+      </dl>
+      <div class="flex items-center gap-3 rounded-lg bg-slate-950/75 px-3 py-2 text-[11px] text-slate-200" role="group" aria-label="Colour legend by magnitude">
+        <span class="flex items-center gap-1"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#facc15"></span>M2.5-4</span>
+        <span class="flex items-center gap-1"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#f97316"></span>M4-5.5</span>
+        <span class="flex items-center gap-1"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#ef4444"></span>M5.5+</span>
+        <button type="button" id="ndp-rotate-toggle" aria-pressed="false" hidden
+                class="ml-1 rounded-md border border-white/30 px-2 py-0.5 text-[11px] text-white hover:bg-white/10">Pause rotation</button>
+      </div>
+    </div>
+  </div>
+
+  </div>{# /ndp-stage #}
+
+  {# Feed status and strongest quakes (keyboard / screen-reader route to the same data as the globe) #}
+  <div class="relative z-10 border-t border-white/10 bg-slate-950/70 px-5 py-3 sm:px-10">
+    <div id="ndp-feed-status" role="status" aria-live="polite" class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+      <span id="ndp-feed-text">Loading live earthquake data from USGS&hellip;</span>
+      <button type="button" id="ndp-feed-retry" hidden class="rounded-md border border-white/40 px-2.5 py-1 text-xs text-white hover:bg-white/10">Retry</button>
+    </div>
+    <div id="ndp-top-wrap" hidden class="mt-2">
+      <p class="text-[11px] uppercase tracking-wide text-slate-400" id="ndp-top-label">Strongest this week</p>
+      <ul id="ndp-top-list" class="mt-1.5 flex flex-wrap gap-2" aria-labelledby="ndp-top-label"></ul>
+    </div>
+    <p class="mt-2 text-[11px] text-slate-400">Live data: USGS Earthquake Hazards Program, magnitude 2.5+, past 7 days, fetched in your browser. Model outputs on this site are estimates, not warnings.</p>
   </div>
 </section>
 
-<section class="mt-10" aria-labelledby="modules-heading">
-  <div class="flex items-end justify-between gap-4">
+{# ------------------------------------------------------------ WHAT YOU CAN DO ------------------------------------------------------------ #}
+<section class="mt-10" aria-labelledby="can-heading">
+  <h2 id="can-heading" class="text-lg font-semibold text-slate-900">What you can do</h2>
+  <ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <li class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xl" aria-hidden="true">🔊</p>
+      <h3 class="mt-1 text-sm font-semibold text-slate-900">Listen and speak</h3>
+      <p class="mt-1 text-sm text-slate-600">Turn on <strong>Voice</strong> in the header to hear results read aloud, or <strong>Speak</strong> to dictate form values.</p>
+    </li>
+    <li class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xl" aria-hidden="true">🚨</p>
+      <h3 class="mt-1 text-sm font-semibold text-slate-900">Nearby alerts</h3>
+      <p class="mt-1 text-sm text-slate-600">After a strong earthquake estimate, find the closest hospitals and police stations and alert them by email or SMS.</p>
+      <a href="{{ url_for('alerts_page').path }}" class="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">Open Alerts &rarr;</a>
+    </li>
+    <li class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xl" aria-hidden="true">📊</p>
+      <h3 class="mt-1 text-sm font-semibold text-slate-900">Four-model comparison</h3>
+      <p class="mt-1 text-sm text-slate-600">Random forest, neural network, SVM and linear regression scored side by side for each hazard.</p>
+      <a href="{{ url_for('compare_page').path }}" class="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">Compare models &rarr;</a>
+    </li>
+    <li class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xl" aria-hidden="true">💬</p>
+      <h3 class="mt-1 text-sm font-semibold text-slate-900">Sentiment vs impact</h3>
+      <p class="mt-1 text-sm text-slate-600">See how public posts about seven disasters score against their monetary damage.</p>
+      <a href="{{ url_for('sentiment_page').path }}" class="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">Open Sentiment &rarr;</a>
+    </li>
+  </ul>
+</section>
+
+{# ----------------------------------------------------------------- MODULES ----------------------------------------------------------------- #}
+<section class="mt-12" aria-labelledby="modules-heading">
+  <div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
     <h2 id="modules-heading" class="text-lg font-semibold text-slate-900">Modules</h2>
     <p class="text-xs text-slate-500">Status reflects trained artifacts and configured keys on this server.</p>
   </div>
   {% if modules %}
-  <ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <ol class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% for m in modules %}
-    <li class="group relative flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-brand-600/40 hover:shadow">
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="text-base font-semibold text-slate-900">
-          <a href="{{ url_for(m.endpoint) }}" class="after:absolute after:inset-0 focus:outline-none">{{ m.name }}</a>
-        </h3>
-        {{ status_pill(m.status) }}
+    <li class="group relative flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-600/40 hover:shadow-md focus-within:ring-2 focus-within:ring-brand-600 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xl" aria-hidden="true">{{ icons.get(m.endpoint, '🔹') }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-medium tabular-nums text-slate-400" aria-hidden="true">{{ '%02d' % loop.index }}</p>
+          <h3 class="text-base font-semibold leading-snug text-slate-900">
+            <a href="{{ url_for(m.endpoint).path }}" class="after:absolute after:inset-0 focus:outline-none">{{ m.name }}</a>
+          </h3>
+        </div>
+        <div class="shrink-0">{{ status_pill(m.status) }}</div>
       </div>
-      <p class="mt-2 text-sm text-slate-600 flex-1">{{ m.blurb }}</p>
+      <p class="mt-3 flex-1 text-sm text-slate-600">{{ m.blurb }}</p>
       <span class="mt-4 text-sm font-medium text-brand-700 group-hover:underline">Open &rarr;</span>
     </li>
     {% endfor %}
-  </ul>
+  </ol>
   {% else %}
   <p class="mt-4 rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500">No modules are registered.</p>
   {% endif %}
 </section>
 
-<section class="mt-12 grid gap-6 lg:grid-cols-3" aria-labelledby="how-heading">
-  <h2 id="how-heading" class="sr-only">How it works</h2>
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
-    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 text-sm font-semibold">1</div>
-    <h3 class="mt-3 font-semibold text-slate-900">Train once</h3>
-    <p class="mt-1 text-sm text-slate-600"><code class="font-mono text-xs">ndp-fetch-data</code> downloads the public CSVs and <code class="font-mono text-xs">ndp-train</code> fits every model, saving artifacts, metrics and plots to disk.</p>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
-    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 text-sm font-semibold">2</div>
-    <h3 class="mt-3 font-semibold text-slate-900">Predict from artifacts</h3>
-    <p class="mt-1 text-sm text-slate-600">Web requests only load saved models and score your inputs. Nothing trains, downloads or writes files per request, so pages answer in milliseconds.</p>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
-    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700 text-sm font-semibold">3</div>
-    <h3 class="mt-3 font-semibold text-slate-900">Estimates, not forecasts</h3>
-    <p class="mt-1 text-sm text-slate-600">Each number is a regression over past events with its accuracy shown next to it. Use it to explore the data, never as a warning system.</p>
+{# ------------------------------------------------------------------ HOW IT WORKS ------------------------------------------------------------------ #}
+<section class="mt-12" aria-labelledby="how-heading">
+  <h2 id="how-heading" class="text-lg font-semibold text-slate-900">How it works</h2>
+  <ol class="mt-4 grid gap-4 lg:grid-cols-3">
+    <li class="rounded-xl border border-slate-200 bg-white p-5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700" aria-hidden="true">1</div>
+      <h3 class="mt-3 font-semibold text-slate-900">Train once</h3>
+      <p class="mt-1 text-sm text-slate-600"><code class="notranslate font-mono text-xs">ndp-fetch-data</code> downloads the public datasets; <code class="notranslate font-mono text-xs">ndp-train</code> fits every model and saves it with its metrics and plots.</p>
+    </li>
+    <li class="rounded-xl border border-slate-200 bg-white p-5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700" aria-hidden="true">2</div>
+      <h3 class="mt-3 font-semibold text-slate-900">Predict from artifacts</h3>
+      <p class="mt-1 text-sm text-slate-600">Requests only load saved models and score your inputs. Nothing trains or downloads per request.</p>
+    </li>
+    <li class="rounded-xl border border-slate-200 bg-white p-5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700" aria-hidden="true">3</div>
+      <h3 class="mt-3 font-semibold text-slate-900">Estimates, not forecasts</h3>
+      <p class="mt-1 text-sm text-slate-600">Each number is a regression over past events, shown with its accuracy. Use it to explore the data, never as a warning system.</p>
+    </li>
+  </ol>
+</section>
+
+{# -------------------------------------------------------------------- CREDITS -------------------------------------------------------------------- #}
+<section class="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="credits-heading">
+  <div class="grid gap-6 p-6 sm:p-8 md:grid-cols-[1fr_auto] md:items-center">
+    <div>
+      <h2 id="credits-heading" class="text-xs font-semibold uppercase tracking-widest text-brand-700">Capstone Project 2020 &middot; VIT University</h2>
+      <dl class="mt-4 grid gap-x-10 gap-y-3 sm:grid-cols-2">
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">Submitted by</dt>
+          <dd class="mt-0.5 text-base font-semibold text-slate-900">Vaibhav Bansal <span class="notranslate font-normal text-slate-600">(16BCE2288)</span></dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500">Guide</dt>
+          <dd class="mt-0.5 text-base font-semibold text-slate-900">Prof. Balamurugan R</dd>
+        </div>
+      </dl>
+      <p class="mt-4 max-w-2xl text-sm text-slate-600">
+        Everything here is a statistical estimate learned from historical data. It is a student project and must not be used as a warning or forecast system.
+      </p>
+    </div>
+    <a href="https://github.com/VaibhavBansal26/Capstone-2020-Natural-Disaster-Prediction" target="_blank" rel="noopener noreferrer"
+       class="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">
+      <svg class="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Source on GitHub <span class="sr-only">(opens in a new tab)</span>
+    </a>
   </div>
 </section>
 {% endblock %}

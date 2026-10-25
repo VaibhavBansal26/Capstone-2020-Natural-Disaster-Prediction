@@ -3,7 +3,8 @@
   {{ error_box(error) }}
 {% elif score is defined %}
   {% set tone = {'positive': 'ok', 'negative': 'danger', 'neutral': 'muted'}.get(label, 'muted') %}
-  <div class="rounded-xl border border-slate-200 bg-white p-5">
+  <div class="rounded-xl border border-slate-200 bg-white p-5"
+       data-speak="Your text scores {{ '%.2f'|format(score) }}, which is {{ label }}.">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Sentiment of your text</h3>
       {{ badge(label|capitalize, tone) }}

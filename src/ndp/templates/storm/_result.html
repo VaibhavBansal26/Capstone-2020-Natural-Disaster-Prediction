@@ -7,7 +7,8 @@
   {% set lower = result.label|lower %}
   {% set severe = 'storm' in lower or 'thunder' in lower or 'squall' in lower or 'tornado' in lower or 'hail' in lower %}
   {% set tone = 'danger' if severe else ('warn' if ('rain' in lower or 'snow' in lower or 'drizzle' in lower) else 'ok') %}
-  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if severe else 'border-slate-200 bg-white' }} p-5">
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if severe else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Most likely weather: {{ result.label|lower }}.{% if result.top %} About {{ '%.0f'|format(result.top[0][1] * 100) }} percent probability.{% endif %}">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-slate-900">Most likely weather class</h3>
       {{ badge(result.label|capitalize, tone) }}

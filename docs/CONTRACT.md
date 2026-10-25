@@ -112,7 +112,7 @@ All predict helpers return frozen dataclasses (defined in each module) and raise
   plot `generated/sentiment/impact_vs_sentiment.png` (scatter + fitted line). Can take several minutes.
 - `scores() -> dict` loads `SCORES`.
 
-### `ndp.ml.covid` (archived module; trained only with `ndp-train --include-covid`)
+### `ndp.ml.covid` (trained by `ndp-train` while NDP_ENABLE_COVID is true)
 - `MODEL = "covid_india_cases"`, `EPOCH = date(2020, 1, 22)`
 - `train()`: JHU CSV, rows where `Country/Region == "India"` summed; x = day index, y = cumulative confirmed;
   `Pipeline(StandardScaler, MLPRegressor((64, 64, 64), max_iter=3000, random_state=0))`; metadata last_date, n_days, r2.

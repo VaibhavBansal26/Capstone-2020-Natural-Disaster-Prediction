@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="NDP_", env_file=".env", extra="ignore")
 
     debug: bool = False
-    enable_covid: bool = False
+    enable_covid: bool = True
 
     data_dir: Path = PROJECT_DIR / "data" / "raw"
     models_dir: Path = PROJECT_DIR / "models"
@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     alert_from_email: str = ""
     alert_to_email: str = ""
+
+    # Alert behaviour. Automatic alerts are opt-in because the earthquake model is a statistical
+    # illustration (R^2 near zero), not a detector; manual alerts always need a click and a confirm.
+    auto_alert: bool = False
+    alerts_dry_run: bool = False
+    alert_radius_km: float = 15.0
 
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
