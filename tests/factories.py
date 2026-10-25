@@ -3,6 +3,9 @@ tests never need trained models."""
 
 from __future__ import annotations
 
+import pytest
+
+from ndp.config import get_settings
 from ndp.ml import flood, hazard
 
 
@@ -64,4 +67,13 @@ def make_forecast(levels=(1.43, 1.46, 1.52), now=1.42) -> flood.FloodForecast:
     ]
     return flood.FloodForecast(
         horizons=horizons, any_flood=any(h.is_flood for h in horizons), peak_level_m=max(levels)
+    )
+
+
+def requires_data(*filenames: str):
+    """Skip a test that trains on a real dataset when `ndp-fetch-data` has not been run."""
+    data_dir = get_settings().data_dir
+    missing = [f for f in filenames if not (data_dir / f).exists()]
+    return pytest.mark.skipif(
+        bool(missing), reason=f"run `ndp-fetch-data` first (missing {missing})"
     )

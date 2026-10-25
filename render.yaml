@@ -18,6 +18,10 @@ services:
         value: /var/data/raw
       - key: NDP_MODELS_DIR
         value: /var/data/models
+      - key: NDP_GENERATED_DIR
+        value: /var/data/plots
+      - key: NDP_STATE_DIR
+        value: /var/data/state
       - key: FORWARDED_ALLOW_IPS
         value: "*"             # trust Render's proxy so client IPs are real
       - key: NDP_ENABLE_COVID

@@ -1,9 +1,10 @@
 """``ndp-train``: train every model once and save the artifacts and plots.
 
-uv run ndp-train                     # everything except covid
+uv run ndp-train                     # every model (COVID-19 too while NDP_ENABLE_COVID is on)
 uv run ndp-train --quick             # smaller compare subsample, no sentiment
 uv run ndp-train flood storm         # a subset (flood hazard catalogue ...)
-uv run ndp-train --include-covid     # also the COVID-19 model (on by default)
+uv run ndp-train --if-missing        # only what is absent: the container entrypoint uses this
+uv run ndp-train --include-covid     # also the COVID-19 model even when the flag is off
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from ndp.ml import (
     flood,
     hazard,
     hurricane,
+    registry,
     sentiment,
     storm,
     tsunami,
@@ -44,6 +46,38 @@ TRAINERS: dict[str, Callable[[], dict]] = {
 }
 
 QUICK_COMPARE_MAX_ROWS = 3000
+
+# What each trainer produces, so `--if-missing` can tell what is absent. A trainer also counts as
+# missing when its plots folder is gone (models on a persistent volume, plots on an image layer).
+ARTIFACTS: dict[str, list[str]] = {
+    "flood": ["flood_level"],
+    "catalogue": ["earthquake_catalogue"],
+    "hazard": ["earthquake_hazard"],
+    "tsunami": ["tsunami_magnitude"],
+    "hurricane": ["hurricane_wind"],
+    "storm": ["storm_classifier"],
+    "compare": [compare.artifact_name(h) for h in compare.HAZARDS],
+    "sentiment": ["sentiment_scores"],
+    "covid": ["covid_india_cases"],
+}
+PLOT_DIRS = {
+    "flood": "flood",
+    "catalogue": "earthquake",
+    "hazard": "earthquake",
+    "tsunami": "tsunami",
+    "hurricane": "hurricane",
+    "storm": "storm",
+    "compare": "compare",
+    "sentiment": "sentiment",
+    "covid": "covid",
+}
+
+
+def is_missing(name: str) -> bool:
+    if not all(registry.is_trained(a) for a in ARTIFACTS.get(name, [])):
+        return True
+    plots_dir = get_settings().generated_dir / PLOT_DIRS.get(name, name)
+    return not (plots_dir.is_dir() and any(plots_dir.glob("*.png")))
 
 
 def _skill(result: dict) -> str:
@@ -109,6 +143,11 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--skip-sentiment", action="store_true", help="skip the slow NLTK scoring")
     parser.add_argument(
+        "--if-missing",
+        action="store_true",
+        help="train only what has no saved artifact or plots yet (safe to run on every start)",
+    )
+    parser.add_argument(
         "--quick",
         action="store_true",
         help=f"compare max_rows={QUICK_COMPARE_MAX_ROWS} and skip sentiment",
@@ -127,10 +166,28 @@ def select(args: argparse.Namespace) -> dict[str, Callable[[], dict]]:
             continue
         if name == "sentiment" and skip_sentiment and "sentiment" not in args.names:
             continue
+        if args.if_missing and not is_missing(name):
+            continue
         if name == "compare" and args.quick:
             trainer = partial(compare.train_all, max_rows=QUICK_COMPARE_MAX_ROWS)
         chosen[name] = trainer
     return chosen
+
+
+RUN_RECORD = "training_run"
+
+
+def _record_run(timings: dict[str, float], total: float, quick: bool) -> None:
+    """Remember how long each trainer took (merged across partial runs) for `ndp-report`."""
+    try:
+        previous = registry.load(RUN_RECORD)["seconds"] if registry.is_trained(RUN_RECORD) else {}
+    except Exception:  # an unreadable old record must never fail a training run
+        previous = {}
+    registry.save(
+        RUN_RECORD,
+        {"seconds": {**previous, **timings}},
+        {"last_run_total_seconds": round(total, 1), "last_run_quick": quick},
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -138,7 +195,11 @@ def main(argv: list[str] | None = None) -> int:
     trainers = select(args)
     settings = get_settings()
     print(f"models -> {settings.models_dir}\nplots  -> {settings.generated_dir}")
+    if not trainers:
+        print("nothing to train: every model and its plots already exist")
+        return 0
     failures = 0
+    timings: dict[str, float] = {}
     total_start = time.perf_counter()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ConvergenceWarning)
@@ -151,8 +212,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[{name:<10}] SKIPPED  {exc}", file=sys.stderr)
                 continue
             elapsed = time.perf_counter() - start
+            timings[name] = round(elapsed, 2)
             print(f"[{name:<10}] {elapsed:7.1f}s  {_headline(name, result)}", flush=True)
-    print(f"done in {time.perf_counter() - total_start:.1f}s")
+    total = time.perf_counter() - total_start
+    print(f"done in {total:.1f}s")
+    if timings:
+        _record_run(timings, total, quick=args.quick)
     return 1 if failures else 0
 
 

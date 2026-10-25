@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from ndp.ml import compare, features, flood, hazard, hurricane, registry
+from tests.factories import requires_data
 
 # --------------------------------------------------------------------------- hazard maths
 
@@ -191,6 +192,7 @@ def test_elevated_follows_level():
     assert est.level == "very high" and est.elevated
 
 
+@requires_data("database.csv")
 def test_hazard_real_catalogue(monkeypatch):
     monkeypatch.setattr(hazard, "MODEL", "earthquake_hazard_test")
     with pytest.raises(registry.ModelNotTrained):
@@ -472,3 +474,44 @@ def test_catalogue_statistics_on_a_tiny_frame():
     assert stats["busiest_year"] in (2001, 2005) and stats["busiest_year_count"] == 2
     assert stats["by_month"][2] == 2 and stats["magnitude_bins"]["5-6"] == 2
     assert stats["magnitude_bins"]["7-8"] == 1
+
+
+def test_catalogue_keeps_only_earthquakes(monkeypatch):
+    import pandas as pd
+
+    from ndp.ml import catalogue
+
+    frame = pd.DataFrame(
+        {
+            "Date": ["01/02/1965", "01/03/1965", "01/04/1965"],
+            "Latitude": [1.0, 2.0, 3.0],
+            "Longitude": [1.0, 2.0, 3.0],
+            "Depth": [10.0, 10.0, 10.0],
+            "Magnitude": [6.0, 6.1, 5.9],
+            "Type": ["Earthquake", "Nuclear Explosion", "Rock Burst"],
+        }
+    )
+    monkeypatch.setattr(catalogue, "load_csv", lambda name: frame)
+    assert list(catalogue.load_frame()["Magnitude"]) == [6.0]
+
+
+def test_tsunami_imputation_happens_inside_the_pipeline_not_before_the_split(monkeypatch):
+    import numpy as np
+    import pandas as pd
+
+    from ndp.ml import tsunami
+
+    raw = pd.DataFrame(
+        {
+            "LATITUDE": [1.0, 2.0, 3.0, 4.0],
+            "LONGITUDE": [1.0, 2.0, 3.0, 4.0],
+            "MAXIMUM_HEIGHT": [1.0, np.nan, 3.0, np.nan],
+            "PRIMARY_MAGNITUDE": [6.0, 6.5, 7.0, 7.5],
+            "YEAR": [2000, 2001, 2002, 2003],
+        }
+    )
+    monkeypatch.setattr(tsunami, "load_csv", lambda name: raw)
+    frame = tsunami.load_frame()
+    assert frame["MAXIMUM_HEIGHT"].isna().sum() == 2  # nothing was filled with a global mean
+    steps = [type(s).__name__ for _, s in tsunami._build_model().steps]
+    assert steps == ["SimpleImputer", "RandomForestRegressor"]

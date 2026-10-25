@@ -32,8 +32,6 @@
     {% endif %}
     {% if sms_english_only is defined and sms_english_only %}
       <p class="mt-3 text-xs text-slate-600">The message with translations is longer than an SMS allows, so the SMS carries the English text only with a note; the email has all languages.</p>
-    {% elif sms_cut is defined and sms_cut %}
-      <p class="mt-3 text-xs text-slate-600">The message with translations is longer than an SMS allows, so the SMS is cut at 1500 characters; the email has all languages.</p>
     {% endif %}
     {% if _dry %}
       <p class="mt-3 text-xs text-slate-600"><code class="font-mono">NDP_ALERTS_DRY_RUN</code> is on: the message was composed and the channels checked, but nothing left the server.</p>

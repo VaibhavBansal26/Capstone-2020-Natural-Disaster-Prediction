@@ -14,7 +14,9 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline, make_pipeline
 
 from ndp.ml import plots, registry
 from ndp.ml.features import cv_summary, honest_metadata, load_csv, single_row
@@ -33,19 +35,24 @@ class TsunamiPrediction:
 
 
 def load_frame() -> pd.DataFrame:
-    """Features fillna(mean) as legacy did; rows with no recorded magnitude are dropped."""
+    """Numeric features (missing values left as NaN for the model's imputer); rows with no
+    recorded magnitude are dropped."""
     raw = load_csv(CSV)
     df = raw[FEATURES + [TARGET, "YEAR"]].copy()
     for col in FEATURES:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-        df[col] = df[col].fillna(df[col].mean())
     df[TARGET] = pd.to_numeric(df[TARGET], errors="coerce")
     df = df.dropna(subset=[TARGET])
     return df.reset_index(drop=True)
 
 
-def _build_model() -> RandomForestRegressor:
-    return RandomForestRegressor(n_estimators=300, min_samples_leaf=3, n_jobs=-1, random_state=0)
+def _build_model() -> Pipeline:
+    """Mean imputation lives inside the pipeline, so each training fold (and the final model)
+    learns the mean from its own training rows only; filling before the split would leak."""
+    return make_pipeline(
+        SimpleImputer(strategy="mean"),
+        RandomForestRegressor(n_estimators=300, min_samples_leaf=3, n_jobs=-1, random_state=0),
+    )
 
 
 def _plots(df: pd.DataFrame) -> None:
@@ -101,7 +108,7 @@ def train() -> dict:
         "target": TARGET,
         "note": "MAXIMUM_HEIGHT is an observed outcome: this estimates source magnitude, not risk.",
     }
-    model.n_jobs = 1  # single-row requests: thread start-up would dominate
+    model[-1].n_jobs = 1  # single-row requests: thread start-up would dominate
     registry.save(MODEL, model, metadata)
     return metadata
 

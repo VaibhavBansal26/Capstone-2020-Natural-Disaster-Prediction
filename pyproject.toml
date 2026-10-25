@@ -32,6 +32,7 @@ ndp-train = "ndp.ml.train:main"
 ndp-serve = "ndp.main:serve"
 ndp-fetch-guidance = "ndp.guidance:main"
 ndp-eval = "ndp.evals:main"
+ndp-report = "ndp.report:main"
 
 [dependency-groups]
 dev = [
@@ -53,6 +54,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The report is mostly long prose strings and wide table rows.
+"src/ndp/report.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -12,10 +12,10 @@ from ndp.config import PACKAGE_DIR, get_settings
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 
 
-def render(request: Request, name: str, **context: Any):
+def render(request: Request, name: str, *, status_code: int = 200, **context: Any):
     """Render a template with the settings object always available as `settings`."""
     context.setdefault("settings", get_settings())
-    return templates.TemplateResponse(request, name, context)
+    return templates.TemplateResponse(request, name, context, status_code=status_code)
 
 
 def is_htmx(request: Request) -> bool:

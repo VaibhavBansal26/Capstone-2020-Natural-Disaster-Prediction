@@ -23,6 +23,8 @@ TARGET = "Magnitude"
 
 def load_frame() -> pd.DataFrame:
     df = load_csv(CSV)
+    if "Type" in df.columns:  # the file also lists nuclear explosions, explosions and a rock burst
+        df = df[df["Type"] == "Earthquake"]
     df = df.dropna(subset=["Date", "Latitude", "Longitude", "Depth", TARGET]).copy()
     df["date_epoch"] = df["Date"].map(earthquake_date_to_epoch)
     df["datetime"] = pd.to_datetime(df["date_epoch"], unit="s")

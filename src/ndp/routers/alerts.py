@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import inspect
+import re
+import secrets
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_float, parse_text
 from ndp.services import ServiceError, alerting, geo, llm, translate
+from ndp.services.ratelimit import RateLimiter
 from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/alerts")
@@ -16,6 +18,17 @@ router = APIRouter(prefix="/alerts")
 SMS_LIMIT = 1500
 SMS_TRANSLATIONS_NOTE = "[Translations are in the email version.]"
 MAX_TRANSLATION_CHARS = 4000
+
+# Sending is unauthenticated unless NDP_ALERTS_PASSCODE is set, so cap it per client address.
+SEND_LIMIT = 5
+SEND_WINDOW_SECONDS = 600.0
+send_limiter = RateLimiter(SEND_LIMIT, SEND_WINDOW_SECONDS)
+translate_limiter = RateLimiter(6, 600.0)  # each preview makes up to twelve Claude calls
+PHONE_PATTERN = re.compile(r"^\+?[0-9][0-9 ()-]{6,18}[0-9]$")
+
+
+def _client_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
 
 
 def _translation_ui() -> dict:
@@ -33,6 +46,8 @@ def _page_context() -> dict:
         "sms_configured": s.sms_configured,
         "dry_run": s.alerts_dry_run,
         "watcher_on": s.watch_quakes,
+        "passcode_required": bool(s.alerts_passcode),
+        "custom_phone_allowed": s.alerts_allow_custom_phone,
         "meta": None,
         "trained": True,
         **_translation_ui(),
@@ -63,6 +78,8 @@ def _results_response(request: Request, inputs: dict, found, radius: float, make
         radius_km=radius,
         warning=warning,
         message=make_message(found, places),
+        passcode_required=bool(get_settings().alerts_passcode),
+        custom_phone_allowed=get_settings().alerts_allow_custom_phone,
         **_translation_ui(),
     )
 
@@ -153,6 +170,13 @@ def alerts_translate(
             "alerts/_translations.html",
             error="Translation needs Claude, which is not configured on this server.",
         )
+    allowed, retry_after = translate_limiter.hit(_client_key(request))
+    if not allowed:
+        return render(
+            request,
+            "alerts/_translations.html",
+            error=f"Too many translation requests. Try again in {int(retry_after) + 1} seconds.",
+        )
     try:
         text = parse_text(message, "Message", 1200)
         languages = languages or []
@@ -202,12 +226,13 @@ def compose_bodies(text: str, translations: dict[str, str]) -> tuple[str, str, b
     return email_body, sms_body, True
 
 
-def _dispatch(place_name: str, email_body: str, sms_body: str, phone: str):
-    """Send. A separate SMS text needs ``alerting.dispatch(..., sms_body=)``; until that exists
-    the combined body goes to both channels (SMS then shows its first 1500 characters)."""
-    if sms_body != email_body and "sms_body" in inspect.signature(alerting.dispatch).parameters:
-        return alerting.dispatch(place_name, email_body, phone, sms_body=sms_body), True
-    return alerting.dispatch(place_name, email_body, phone), sms_body == email_body
+def _dispatch(place_name: str, email_body: str, sms_body: str, phone: str | None):
+    """Send (or dry-run). SMS gets its own, shorter body only when the combined text is too long."""
+    separate = sms_body != email_body
+    outcome = alerting.dispatch(
+        place_name, email_body, phone, sms_body=sms_body if separate else None
+    )
+    return outcome, separate
 
 
 @router.post("/send", name="alerts_send")
@@ -216,10 +241,16 @@ def alerts_send(
     place: str = Form(""),
     message: str = Form(""),
     phone: str = Form(""),
+    passcode: str = Form(""),
     translations: dict[str, str] = _TRANSLATIONS,
 ):
     inputs = {"place": place, "message": message, "phone": phone}
+    settings = get_settings()
     try:
+        if settings.alerts_passcode and not secrets.compare_digest(
+            passcode.encode(), settings.alerts_passcode.encode()
+        ):
+            raise FormError("The alert passcode is missing or wrong.")
         place_name = parse_text(place, "Place", 300)
         text = parse_text(message, "Message", 1200)
         for code, body in translations.items():
@@ -238,8 +269,37 @@ def alerts_send(
             sent=True,
             error=str(exc),
         )
+    allowed, retry_after = send_limiter.hit(_client_key(request))
+    if not allowed:
+        return page_or_partial(
+            request,
+            "alerts/page.html",
+            "alerts/_sent.html",
+            _page_context,
+            inputs=inputs,
+            sent=True,
+            error=(
+                f"Too many alerts from this address. Try again in {int(retry_after) + 1} seconds."
+            ),
+        )
+    custom_phone = phone.strip()
+    ignored_phone = False
+    if custom_phone and not settings.alerts_allow_custom_phone:
+        custom_phone, ignored_phone = "", True  # never text an arbitrary number from a web form
+    elif custom_phone and not PHONE_PATTERN.match(custom_phone):
+        return page_or_partial(
+            request,
+            "alerts/page.html",
+            "alerts/_sent.html",
+            _page_context,
+            inputs=inputs,
+            sent=True,
+            error="That phone number does not look valid (digits, spaces, + ( ) - only).",
+        )
     email_body, sms_body, sms_english_only = compose_bodies(text, translations)
-    outcome, sms_separate = _dispatch(place_name, email_body, sms_body, phone)
+    outcome, sms_separate = _dispatch(place_name, email_body, sms_body, custom_phone or None)
+    if ignored_phone:
+        outcome.skipped.append("custom phone number ignored (disabled on this server)")
     return page_or_partial(
         request,
         "alerts/page.html",
@@ -263,5 +323,4 @@ def alerts_send(
             for c, t in translations.items()
         ],
         sms_english_only=sms_english_only and sms_separate,
-        sms_cut=sms_english_only and not sms_separate,
     )

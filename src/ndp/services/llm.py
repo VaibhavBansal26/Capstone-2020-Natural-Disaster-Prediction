@@ -9,7 +9,8 @@ place:
 * No sampling parameters (temperature, top_p, top_k are rejected by current models), no assistant
   prefill, no forced ``tool_choice`` (rejected by Opus 5.5): steer with the prompt instead.
 * ``stop_reason == "refusal"`` is a normal 200 response; callers check it via ``refused()``.
-  Server-side refusal fallbacks are requested for the models that support them.
+  Server-side refusal fallbacks are requested by ``create_message`` for the models that support
+  them; ``parse`` (structured output, used by triage) calls the SDK directly and does not.
 * Anthropic SDK errors become ``ServiceError`` with a message safe to show in the UI.
 
 Tests replace ``get_client`` with a fake; nothing here runs without a key.

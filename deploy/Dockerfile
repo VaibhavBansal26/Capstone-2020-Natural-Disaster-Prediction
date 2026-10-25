@@ -10,7 +10,8 @@ RUN uv sync --frozen --no-dev --no-install-project --all-extras
 COPY . .
 RUN uv sync --frozen --no-dev --all-extras
 
-# Raw data, trained models and NLTK corpora live on volumes; the entrypoint fills them.
+# Raw data and trained models live on volumes; the entrypoint fetches and trains what is missing.
+# (NLTK corpora are downloaded by the app at startup.)
 VOLUME ["/app/data/raw", "/app/models"]
 EXPOSE 8000
 ENTRYPOINT ["./deploy/entrypoint.sh"]

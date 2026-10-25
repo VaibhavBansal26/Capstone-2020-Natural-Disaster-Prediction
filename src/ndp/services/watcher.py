@@ -33,12 +33,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from ndp.config import PROJECT_DIR, get_settings
+from ndp.config import get_settings
 from ndp.services import ServiceError, alerting, geo, usgs
 
 log = logging.getLogger("ndp.watcher")
 
-STATE_PATH = PROJECT_DIR / "state" / "watcher.json"
+STATE_PATH = get_settings().state_dir / "watcher.json"  # NDP_STATE_DIR; mount a volume here
 MAX_SEEN = 2000  # ids remembered; the USGS week feed holds far fewer
 MAX_HANDLED = 20
 MAX_ATTEMPTS = 3

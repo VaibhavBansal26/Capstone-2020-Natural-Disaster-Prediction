@@ -1,5 +1,7 @@
 # Architecture
 
+This is the short map. Detail lives in [code-walkthrough.md](code-walkthrough.md) (backend), [frontend.md](frontend.md) (browser side), [models.md](models.md) (every model) and [statistics.md](statistics.md) (generated numbers).
+
 A FastAPI application that renders server-side Jinja2 pages, enhanced with HTMX. Models are
 trained once from the command line and loaded from disk at request time. Nothing trains, downloads
 or writes files inside a web request.
@@ -23,7 +25,7 @@ frontend/                   Tailwind config, input CSS and build.sh (compiles st
 tests/                      ml/, services/, web/, js/ plus factories.py and fixtures/
 data/                       raw/ (fetched, git-ignored), guidance/ (committed), evals/ (committed)
 deploy/                     Dockerfile, docker-compose.yml, entrypoint.sh
-docs/                       these documents
+docs/                       these documents (docs/img holds plots and screenshots, docs/statistics.md is generated)
 render.yaml                 Render blueprint (must stay at the root)
 ```
 
@@ -36,7 +38,8 @@ render.yaml                 Render blueprint (must stay at the root)
 3. Handlers validate input with `forms.py` (`FormError` becomes an inline message, never a 422),
    call a prediction function that loads its artifact through `ml/registry.py`, and render.
 4. A missing artifact raises `ModelNotTrained`, which becomes a 503 page telling the user to run
-   `ndp-train` (or a JSON error under `/api/`).
+   `ndp-train` (an inline notice for an HTMX request, because HTMX does not swap 5xx; a JSON 503
+   under `/api/`).
 
 ## Layers and rules
 
@@ -47,6 +50,8 @@ render.yaml                 Render blueprint (must stay at the root)
   Claude calls go through `services/llm.py`, which fixes the model, refusal fallbacks and error
   mapping in one place.
 - **routers/** are thin: parse, call, render. They do not contain model code.
+- **Money-spending and sending endpoints are rate limited per client address** (alert sending,
+  assistant messages, post triage, translation previews), and alert sending can require a passcode.
 - **Alerts never send themselves.** `services/alerting.py` composes and dispatches; the manual
   flow needs a click and a confirm; the optional watcher (`services/watcher.py`) alerts only for new
   real USGS events, once each, and honours dry run. The assistant has no tool that can send.
@@ -56,7 +61,8 @@ render.yaml                 Render blueprint (must stay at the root)
 - Tailwind is compiled (`frontend/build.sh`) to `static/css/tailwind.css`. Rebuild after adding
   utility classes to a template or script.
 - `data-speak="text"` on a result root is read aloud by `static/js/voice.js`;
-  `data-speak-priority="alert"` is read even when voice is off (after the user opted in once).
+  `data-speak-priority="alert"` is read even when voice is off (after the user opted in once). Do
+  not put `data-speak` on fragments that refresh on a timer: they would be read aloud each time.
   `data-voice-command="phrase"` makes an element clickable by voice and `data-voice-confirm`
   requires a spoken "confirm".
 - Maps use Leaflet through the declarative helpers in `static/js/app.js` (`data-ndp-map`,
@@ -89,4 +95,5 @@ API docs are at `/docs`.
 `uv run pytest -q` runs everything. `tests/ml` covers training and prediction on small data,
 `tests/services` the external clients (against recorded fixtures and fakes), `tests/web` every page
 and form, and `tests/js` runs the Node tests for the voice interpreter. No test needs the network,
-trained models or an API key. `tests/factories.py` builds model-result objects for the web tests.
+trained models or an API key. Three tests train on the real datasets and skip when `data/raw` is
+empty; CI runs `ndp-fetch-data` first. `tests/factories.py` builds model-result objects for the web tests.

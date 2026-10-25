@@ -281,20 +281,3 @@ def test_send_long_message_uses_separate_sms_body_and_says_so(client, sent):
     assert sent["sms_body"].endswith(alerts_router.SMS_TRANSLATIONS_NOTE)
     assert len(sent["body"]) > 1500 and "த" in sent["body"]
     assert "SMS carries the English text only" in html
-
-
-def test_send_long_message_with_old_dispatch_signature_falls_back_and_warns(client, monkeypatch):
-    got = {}
-
-    def old_dispatch(place_name, body, phone=None):
-        got["body"] = body
-        return alerting.DispatchResult(channels=["email to ops@example.com"])
-
-    monkeypatch.setattr(alerting, "dispatch", old_dispatch)
-    html = client.post(
-        "/alerts/send",
-        headers=HX,
-        data={"place": "Delhi", "message": "Short alert", "translation_hi": "क" * 1800},
-    ).text
-    assert "क" in got["body"]  # combined body, as before
-    assert "SMS is cut at 1500 characters" in html

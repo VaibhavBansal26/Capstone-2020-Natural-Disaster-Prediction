@@ -34,9 +34,8 @@ import math
 import re
 import secrets
 import threading
-import time
 import unicodedata
-from collections import OrderedDict, deque
+from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -48,6 +47,7 @@ from markupsafe import Markup
 from ndp import guidance
 from ndp.config import get_settings
 from ndp.services import ServiceError, alerting, geo, llm, usgs
+from ndp.services.ratelimit import RateLimiter
 
 log = logging.getLogger("ndp.assistant")
 
@@ -431,6 +431,9 @@ def _tool_earthquake_hazard(args: dict[str, Any]) -> ToolResult:
             "of when or whether one will happen.",
             "Counts include aftershocks (no declustering), so regions with big earthquake "
             "sequences look 'very high'.",
+            "The M8 probability is extrapolated from the magnitude mix and tends to run high "
+            "(worldwide the catalogue has 40 events of M8+ where the method implies 72; the M7 "
+            "fit is close).",
             "Rates built from fewer than about 10 events are noisy"
             + (" (this circle is in that range)." if est.n_events < 10 else "."),
             "The b-value is the global default for this circle (too few local events)."
@@ -590,9 +593,9 @@ def _tool_flood_forecast(args: dict[str, Any]) -> ToolResult:
         _num(args, "level_now_m", 0, 15),
         _num(args, "level_1h_ago_m", 0, 15),
         _num(args, "level_3h_ago_m", 0, 15),
-        _num(args, "rain_3h_mm", 0, 1000),
-        _num(args, "rain_6h_mm", 0, 1000),
-        _num(args, "rain_24h_mm", 0, 2000),
+        _num(args, "rain_3h_mm", 0, 500),
+        _num(args, "rain_6h_mm", 0, 500),
+        _num(args, "rain_24h_mm", 0, 500),
     )
     from ndp.ml import flood  # lazy: the model may not be trained yet
 
@@ -1075,46 +1078,6 @@ def run_tool(name: str, args: Any) -> tuple[str, bool, ToolCall, tuple[Source, .
 # --------------------------------------------------------------------------------------------
 
 
-class RateLimiter:
-    """Sliding-window limiter: at most ``limit`` hits per ``window`` seconds per key."""
-
-    def __init__(
-        self,
-        limit: int = RATE_LIMIT_MESSAGES,
-        window: float = RATE_LIMIT_WINDOW_SECONDS,
-        max_keys: int = 10_000,
-        clock: Callable[[], float] = time.monotonic,
-    ) -> None:
-        self.limit = limit
-        self.window = window
-        self.max_keys = max_keys
-        self._clock = clock
-        self._hits: OrderedDict[str, deque[float]] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def hit(self, key: str) -> tuple[bool, float]:
-        """Record an attempt. Returns (allowed, seconds until the next attempt would be allowed)."""
-        now = self._clock()
-        with self._lock:
-            bucket = self._hits.get(key)
-            if bucket is None:
-                bucket = self._hits[key] = deque()
-                while len(self._hits) > self.max_keys:
-                    self._hits.popitem(last=False)
-            else:
-                self._hits.move_to_end(key)
-            while bucket and now - bucket[0] >= self.window:
-                bucket.popleft()
-            if len(bucket) >= self.limit:
-                return False, max(0.0, self.window - (now - bucket[0]))
-            bucket.append(now)
-            return True, 0.0
-
-    def reset(self) -> None:
-        with self._lock:
-            self._hits.clear()
-
-
 @dataclass
 class Session:
     messages: list[dict[str, Any]] = field(default_factory=list)  # the API history
@@ -1163,7 +1126,7 @@ class SessionStore:
 
 
 sessions = SessionStore()
-rate_limiter = RateLimiter()
+rate_limiter = RateLimiter(RATE_LIMIT_MESSAGES, RATE_LIMIT_WINDOW_SECONDS)
 
 _SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{22,64}$")
 

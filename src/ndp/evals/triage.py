@@ -16,12 +16,11 @@ Grading is deterministic (no model judges another model):
   (the dangerous direction for a triage aid).
 * ``parse_failure_rate``: share of all cases where the call raised ``ServiceError`` (API error,
   refusal, or output that did not match the schema).
-* ``tokens``: totals from ``llm.usage_totals()`` if the shared client exposes it, else ``None``
-  (``llm.parse`` currently returns only the parsed object, so usage is not visible here).
+* ``tokens``: cumulative totals from ``llm.usage_totals()`` for this process.
 
 Without an API key the run prints a skip message and returns ``{"skipped": True, ...}``.
 
-    uv run python -m ndp.evals_triage          # coordinator wires this into ``ndp-eval triage``
+    uv run ndp-eval triage
 """
 
 from __future__ import annotations

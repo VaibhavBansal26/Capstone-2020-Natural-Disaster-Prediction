@@ -4,7 +4,7 @@
 {% block title %}Sentiment analysis{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Sentiment analysis: disasters vs monetary impact</h1>
-<p class="mt-1 max-w-3xl text-sm text-slate-600">Social-media posts collected for seven disasters are scored with a SentiWordNet rule set and aggregated per day and author. The table sets each score against the disaster's estimated economic damage (billion USD) to ask whether public sentiment tracks monetary loss. Scores are computed by <code class="font-mono text-xs">ndp-train</code> and cached; the buttons only read the cache.</p>
+<p class="mt-1 max-w-3xl text-sm text-slate-600">Social-media posts collected for seven disasters are scored with a SentiWordNet rule set and aggregated per day and author. The table sets each score against the monetary-impact figure recorded in the 2020 project to ask whether public sentiment tracks monetary loss. That figure's unit and source were not documented in the original work, so read it as a relative number, not as dollars. Scores are computed by <code class="font-mono text-xs">ndp-train</code> and cached; the buttons only read the cache.</p>
 
 <section class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
   <div class="overflow-x-auto">
@@ -13,7 +13,7 @@
       <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th scope="col" class="px-4 py-3">Disaster</th>
-          <th scope="col" class="px-4 py-3 text-right">Monetary impact (bn USD)</th>
+          <th scope="col" class="px-4 py-3 text-right">Monetary impact (2020 figure)</th>
           <th scope="col" class="px-4 py-3">Sentiment score</th>
         </tr>
       </thead>
@@ -26,7 +26,7 @@
               <span class="font-medium text-slate-900">{{ row.name }}</span>
             </div>
           </td>
-          <td class="px-4 py-3 text-right tabular-nums">{{ row.monetary_impact_busd }}</td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ row.monetary_impact }}</td>
           <td class="px-4 py-3" id="score-{{ row.slug }}">
             {% if row.score is not none %}
               {% include "sentiment/_score.html" %}

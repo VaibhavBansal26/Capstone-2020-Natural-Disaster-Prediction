@@ -29,7 +29,7 @@ class Disaster:
     slug: str
     name: str
     csv: str
-    monetary_impact_busd: float
+    monetary_impact: float  # figure from the 2020 project; its unit and source are undocumented
     image: str
 
 
@@ -313,7 +313,7 @@ def score_dataset(disaster: Disaster) -> dict:
 
 def _plot(results: dict[str, dict]) -> None:
     by_slug = {d.slug: d for d in DISASTERS}
-    xs = np.array([by_slug[slug].monetary_impact_busd for slug in results], dtype=float)
+    xs = np.array([by_slug[slug].monetary_impact for slug in results], dtype=float)
     ys = np.array([results[slug]["score"] for slug in results], dtype=float)
     plt.figure(figsize=(7, 5))
     plt.scatter(xs, ys, s=50, color="#2563eb", zorder=3)
@@ -327,7 +327,7 @@ def _plot(results: dict[str, dict]) -> None:
         plt.plot(grid, slope * grid + intercept, color="#dc2626", label="linear fit")
         plt.legend()
     plt.title("Monetary impact vs forum sentiment")
-    plt.xlabel("Monetary impact (billion USD)")
+    plt.xlabel("Monetary impact (2020 project figure, unit undocumented)")
     plt.ylabel("Sentiment score")
     plots.save_current("sentiment", "impact_vs_sentiment.png")
 

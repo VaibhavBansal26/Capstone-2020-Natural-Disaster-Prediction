@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from ndp import __version__
 from ndp.config import PACKAGE_DIR, get_settings
 from ndp.ml.registry import ModelNotTrained
-from ndp.web import render
+from ndp.web import is_htmx, render
 
 
 @asynccontextmanager
@@ -68,6 +68,12 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+    # Plots written by `ndp-train` can live on a persistent volume (NDP_GENERATED_DIR); the more
+    # specific mount must come first so it wins over the packaged static folder.
+    settings.generated_dir.mkdir(parents=True, exist_ok=True)
+    app.mount(
+        "/static/generated", StaticFiles(directory=str(settings.generated_dir)), name="generated"
+    )
     app.mount("/static", StaticFiles(directory=str(PACKAGE_DIR / "static")), name="static")
 
     from ndp.routers import (
@@ -121,6 +127,9 @@ def create_app() -> FastAPI:
     async def _model_not_trained(request: Request, exc: ModelNotTrained):
         if request.url.path.startswith("/api/"):
             return JSONResponse({"detail": str(exc), "model": exc.name}, status_code=503)
+        if is_htmx(request):
+            # HTMX does not swap 4xx/5xx responses by default, so the inline notice is a 200.
+            return render(request, "errors/_not_trained.html", model_name=exc.name)
         return render(request, "errors/not_trained.html", model_name=exc.name, status_code=503)
 
     @app.get("/healthz", include_in_schema=False)

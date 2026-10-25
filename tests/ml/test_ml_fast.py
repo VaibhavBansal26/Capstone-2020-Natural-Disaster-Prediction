@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from ndp.ml import compare, features, flood, registry, sentiment, storm
+from tests.factories import requires_data
 
 # --------------------------------------------------------------------------- features
 
@@ -99,6 +100,7 @@ def test_disasters_are_in_contract_order():
 # --------------------------------------------------------------------------- storm (real small csv)
 
 
+@requires_data("weather_data.csv")
 def test_storm_train_and_predict():
     meta = storm.train()
     assert meta["n_rows"] == 1020
@@ -120,6 +122,7 @@ def test_storm_train_and_predict():
 # --------------------------------------------------------------------------- flood
 
 
+@requires_data("Hoppers Crossing-Hourly-Rainfall.csv", "Hoppers Crossing-Hourly-River-Level.csv")
 def test_flood_train_and_predict():
     meta = flood.train()
     assert meta["n_rows"] > 60000  # after dropping gaps, outages and stuck-sensor runs

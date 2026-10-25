@@ -8,6 +8,8 @@ FastAPI, scikit-learn, HTMX, Tailwind and Leaflet, with live feeds and a Claude-
 > forecasts or warnings. Earthquakes cannot be predicted: the earthquake page reports a historical
 > hazard rate, and real-time alerts come from the USGS feed, not from a model.
 
+![Home page: a live 3D globe of this week's earthquakes](docs/img/ui-home.jpg)
+
 **Looking for the 2020 version?** It is preserved unchanged at the tag `v1-2020` and the branch
 `legacy-2020`. See [docs/legacy-2020.md](docs/legacy-2020.md) for what changed and where each old
 file went. The [2020 demo video](https://www.youtube.com/embed/Gad5vz1Pkcc) shows that version.
@@ -30,7 +32,16 @@ file went. The [2020 demo video](https://www.youtube.com/embed/Gad5vz1Pkcc) show
 Voice works on every page: a Voice button reads results aloud and a Speak button takes spoken
 form values and commands ("latitude 28 point 6 longitude 77 point 2 radius 300, estimate",
 "open flood", "send alert", then "confirm"). It uses the browser's built-in speech support.
-Alerts always need a confirmation, and nothing in the app contacts hospitals or police directly.
+Alerts need a confirmation, are rate limited and can require a passcode, and nothing in the app contacts hospitals or police directly.
+
+## Screens
+
+| | |
+|---|---|
+| ![Earthquake hazard for Tokyo with the week's strongest real earthquakes](docs/img/ui-earthquake-hazard.jpg) | ![Flood forecast with the caveats and training plots](docs/img/ui-flood-forecast.jpg) |
+| Earthquake hazard for a place, with real events and one-click "Nearby help" | Flood forecast beside "no change", with an honest caveat box |
+| ![Live GDACS global alerts on a map](docs/img/ui-live-gdacs.jpg) | ![Model comparison with a baseline row](docs/img/ui-compare.jpg) |
+| Live global alerts from GDACS | Four models and a baseline; the page says when none beats it |
 
 ## Quick start
 
@@ -38,8 +49,8 @@ Requires [uv](https://docs.astral.sh/uv/), which installs Python 3.12 for you.
 
 ```bash
 uv sync --all-extras        # dependencies (+ optional Twilio for SMS)
-uv run ndp-fetch-data       # 43 MB of CSVs into data/raw/ (pinned to a known commit)
-uv run ndp-train            # trains every model once (about two minutes)
+uv run ndp-fetch-data       # 20 MB of CSVs into data/raw/ (pinned to a known commit)
+uv run ndp-train            # trains every model once (about a minute)
 uv run ndp-serve            # http://localhost:8000
 ```
 
@@ -77,11 +88,16 @@ live strong earthquake arriving while the watcher runs, were also not exercised.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): layout, request flow, conventions, endpoints, tests
-- [Models](docs/models.md): what each model does, how it was evaluated, its limits
-- [Data](docs/data.md): datasets, the committed guidance corpus, live sources
-- [Deployment](docs/deployment.md): Docker, Render, configuration, privacy and security
-- [The 2020 version](docs/legacy-2020.md): what it was and where everything went
+| | |
+|---|---|
+| [Architecture](docs/architecture.md) | Repository map, request flow, rules, endpoint list: start here |
+| [Code walkthrough](docs/code-walkthrough.md) | Backend in detail: lifecycle, services, alert chain, assistant, CLIs, tests, how to add a hazard |
+| [Front end](docs/frontend.md) | Templates, HTMX pattern, maps, voice, globe, language picker, accessibility, recipes |
+| [Models](docs/models.md) | Every model: data, method, validation, results, limits |
+| [Statistics](docs/statistics.md) | Generated numbers: code size, datasets, metrics, timings, latency (`uv run ndp-report`) |
+| [Data](docs/data.md) | Datasets, the committed guidance corpus, live sources |
+| [Deployment](docs/deployment.md) | Docker, Render, configuration, privacy and security |
+| [The 2020 version](docs/legacy-2020.md) | What it was and where everything went |
 
 ## Development
 
@@ -90,6 +106,7 @@ uv run ruff check .
 uv run pytest -q                       # ml, services, web and the Node voice tests
 NDP_DEBUG=true uv run ndp-serve        # auto-reload
 ./frontend/build.sh                    # recompile Tailwind after adding utility classes
+uv run ndp-report --write docs/statistics.md   # refresh the generated numbers
 ```
 
 ## License

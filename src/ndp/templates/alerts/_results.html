@@ -95,7 +95,12 @@ Please follow official guidance and move to safety.
         <p class="text-xs text-slate-500" id="translate-off">Translation is off on this server. It uses Claude: set <code class="font-mono">ANTHROPIC_API_KEY</code> to enable drafting translations here. You can still paste your own translation into the message above.</p>
         {% endif %}
       </fieldset>
+      {% if custom_phone_allowed is defined and custom_phone_allowed %}
       {{ field('phone', 'Phone number (optional)', type='tel', value='', placeholder='+91 98765 43210', required=False, help='Overrides the configured SMS recipient for this alert only.') }}
+      {% endif %}
+      {% if passcode_required is defined and passcode_required %}
+      {{ field('passcode', 'Alert passcode', type='password', value='', required=True, help='Required on this server before an alert can be sent.') }}
+      {% endif %}
       <button type="submit" data-voice-command="send alert" data-voice-confirm
               class="inline-flex items-center gap-2 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">
         Send alert

@@ -590,7 +590,8 @@ def test_watcher_partial_off(client, monkeypatch, tmp_path, env):
     html = client.get("/live/watcher", headers=HX).text
     assert "NDP_WATCH_QUAKES=true" in html and "Off" in html
     assert "Nothing handled yet" in html
-    assert "The real event alert watcher is off." in html
+    # The card refreshes every 30 s, so it must not carry data-speak (it would be re-read aloud).
+    assert "data-speak" not in html
 
 
 def test_watcher_partial_enabled_with_history(client, monkeypatch, tmp_path, env):

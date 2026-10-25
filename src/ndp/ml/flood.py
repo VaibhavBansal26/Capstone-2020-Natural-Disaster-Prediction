@@ -5,7 +5,7 @@ are merged on a complete hourly grid: any hour that is missing in either file st
 (NaN) and every training row whose lookback window or target touches a gap is dropped, so
 nothing is interpolated or invented. Lookback features only ever look backwards in time.
 
-Honest framing: river level is highly persistent (lag-1 autocorrelation about 0.96), so the
+Honest framing: river level is highly persistent (lag-1 autocorrelation about 0.985), so the
 bar to clear is *persistence*, "the level in h hours equals the level now". The model
 predicts the *change* in level over the horizon and adds it to the current level; the
 metadata records, per horizon, whether it actually beats persistence on a chronological
@@ -71,7 +71,7 @@ def load_hourly() -> pd.DataFrame:
     * Timestamps are naive local time, hourly on the hour, newest first in the files.
     * A few timestamps are duplicated (the duplicate rows carry the same value or only NaN):
       the first non-null value wins.
-    * ``Level (m) == 0`` is the logger's outage code (sensor maintenance, 16 runs in nine
+    * ``Level (m) == 0`` is the logger's outage code (sensor maintenance, 14 runs in nine
       years), not a river level, so it becomes NaN.
     * Runs of an identical level lasting ``STUCK_SENSOR_HOURS`` or more (about 10,000 hours in
       2011-2013 sit at exactly 1.40 m or 1.54 m) are a stuck sensor and become NaN.

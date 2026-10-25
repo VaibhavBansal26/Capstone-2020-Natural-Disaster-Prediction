@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     # opt-in; manual alerts always need a click and a confirm.
     alerts_dry_run: bool = False
     alert_radius_km: float = 15.0
+    # POST /alerts/send is reachable by anyone who can open the site, so it is rate limited per
+    # client, can require a passcode, and by default only ever uses the configured SMS recipient.
+    alerts_passcode: str = ""
+    alerts_allow_custom_phone: bool = False
+
+    # Where the real-event watcher keeps its dedupe state; mount a volume here when deploying.
+    state_dir: Path = PROJECT_DIR / "state"
 
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

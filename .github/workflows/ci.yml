@@ -16,4 +16,5 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync --all-extras
       - run: uv run ruff check .
+      - run: uv run ndp-fetch-data --quiet  # a few tests train on the real datasets
       - run: uv run pytest -q

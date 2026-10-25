@@ -94,7 +94,7 @@ def _geojson(layer: str) -> dict:
     if layer == "centres":
         feats = [
             _feature(
-                c["lat"], c["lon"], {"name": c["name"], "popup": f"{c['name']}<br>{c['address']}"}
+                c["lat"], c["lon"], {"name": c["name"], "address": c["address"], "city": c["city"]}
             )
             for c in covid.test_centres()
         ]
@@ -109,10 +109,6 @@ def _geojson(layer: str) -> dict:
                     "confirmed": s["confirmed"],
                     "deaths": s["deaths"],
                     "recovered": s["recovered"],
-                    "popup": (
-                        f"<b>{s['state']}</b><br>Active {s['active']}<br>Confirmed {s['confirmed']}"
-                        f"<br>Deaths {s['deaths']}<br>Recovered {s['recovered']}"
-                    ),
                 },
             )
             for s in covid.state_snapshot()
@@ -127,10 +123,6 @@ def _geojson(layer: str) -> dict:
                     "active": c["active"],
                     "confirmed": c["confirmed"],
                     "deaths": c["deaths"],
-                    "popup": (
-                        f"<b>{c['city']}</b><br>Active {c['active']}<br>Confirmed {c['confirmed']}"
-                        f"<br>Deaths {c['deaths']}"
-                    ),
                 },
             )
             for c in covid.city_snapshot()

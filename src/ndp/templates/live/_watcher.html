@@ -8,8 +8,7 @@
 {% else %}
   {% set state_text = 'enabled but not running' %}
 {% endif %}
-<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-     data-speak="The real event alert watcher is {{ state_text }}{% if w.enabled %}, in {{ 'dry run mode, so nothing is actually sent' if w.dry_run else 'live mode' }}. It checks for earthquakes of magnitude {{ '%.1f'|format(w.min_magnitude) }} or more every {{ interval_text }}. {{ w.handled|length }} event{{ '' if w.handled|length == 1 else 's' }} handled so far{% endif %}.">
+<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
   <p class="max-w-3xl text-sm text-slate-600">When enabled, the server checks the USGS earthquake feed on a schedule. When a new, real earthquake at or above the threshold appears, it composes an alert (with hospitals and police stations found near the epicentre) and sends it to the contacts configured on the server by email and/or SMS. The first check after a fresh start only records the quakes already in the feed, so enabling it never sends a burst of old alerts. USGS data can lag by a few minutes, and the message says it is not an official warning.</p>
 
   <div class="mt-4 flex flex-wrap items-center gap-2">
@@ -55,7 +54,7 @@ NDP_SMTP_USER=...  NDP_SMTP_PASSWORD=...</pre>
   {% if w.handled %}
   <ul class="mt-2 divide-y divide-slate-100 text-sm">
     {% for h in w.handled %}
-    <li class="py-2.5" data-speak="Magnitude {{ '%.1f'|format(h.magnitude) }}, {{ h.place }}. {{ h.outcome }}.">
+    <li class="py-2.5">
       <p class="break-words"><span class="font-medium text-slate-900">M {{ '%.1f'|format(h.magnitude) }}</span> <span class="text-slate-700">{{ h.place }}</span></p>
       <p class="break-words text-xs text-slate-500">{{ h.at.strftime('%Y-%m-%d %H:%M') }} UTC · {{ h.outcome }}</p>
     </li>

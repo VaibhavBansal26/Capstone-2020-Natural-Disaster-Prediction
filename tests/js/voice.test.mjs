@@ -386,3 +386,19 @@ test("flood forecast form: full labels and short spoken forms resolve to the rig
   assert.deepEqual(fills(interpret("rain twenty four hours 35", floodForecast)), { rain_24h: 35 });
   assert.deepEqual(fills(interpret("level 1.2", floodForecast)), { level_now: 1.2 });
 });
+
+test("navigation: a label with a generic tail word is reachable without it", () => {
+  const ctx = {
+    now: NOW,
+    fields: [],
+    nav: [
+      { label: "Compare models", href: "/compare" },
+      { label: "Flood", href: "/flood" },
+    ],
+  };
+  const nav = (text) => interpret(text, ctx).filter((a) => a.type === "navigate").map((a) => a.href);
+  assert.deepEqual(nav("open compare"), ["/compare"]);
+  assert.deepEqual(nav("open compare models"), ["/compare"]);
+  assert.deepEqual(nav("go to flood"), ["/flood"]);
+  assert.deepEqual(nav("compare"), ["/compare"]);
+});

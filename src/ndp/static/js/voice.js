@@ -509,6 +509,8 @@
       var variants = [base];
       var noDigits = base.filter(function (w) { return !/^\d+$/.test(w); });
       if (noDigits.length && noDigits.length !== base.length) variants.push(noDigits);
+      // "Compare models" is also reachable as "compare": drop a generic trailing word.
+      if (base.length > 1 && { models: 1, page: 1, analysis: 1 }[base[base.length - 1]]) variants.push(base.slice(0, -1));
       variants.forEach(function (w) {
         if (w.length) navTable.push({ words: w, label: e.label, href: e.href, current: !!e.current });
       });
@@ -1223,6 +1225,16 @@
       });
     }
 
+    /* The user already confirmed by voice; do not ask again with the browser dialog (hx-confirm).
+     * Only a click made within two seconds of the spoken confirmation is exempt. */
+    doc.addEventListener("htmx:confirm", function (e) {
+      if (voiceConfirmedAt && Date.now() - voiceConfirmedAt < 2000 && e.detail && e.detail.issueRequest) {
+        voiceConfirmedAt = 0;
+        e.preventDefault();
+        e.detail.issueRequest(true);
+      }
+    });
+
     doc.addEventListener("htmx:afterSwap", function (e) {
       var t = (e.detail && e.detail.target) || e.target;
       ensureReadBars();
@@ -1364,6 +1376,8 @@
 
   var pendingConfirm = null, pendingTimer = null;
 
+  var voiceConfirmedAt = 0;
+
   function buildContext() {
     var form = activeForm();
     return {
@@ -1461,7 +1475,11 @@
         case "confirm":
           cmdEl = pendingConfirm && pendingConfirm.el;
           clearPending();
-          if (cmdEl && doc.contains(cmdEl) && !cmdEl.disabled) { clickEl(cmdEl); msgs.push("Confirmed"); } else msgs.push("Nothing to confirm.");
+          if (cmdEl && doc.contains(cmdEl) && !cmdEl.disabled) {
+            voiceConfirmedAt = Date.now(); // lets htmx:confirm skip hx-confirm for this click
+            clickEl(cmdEl);
+            msgs.push("Confirmed");
+          } else msgs.push("Nothing to confirm.");
           break;
         case "cancel":
           if (pendingConfirm) { clearPending(); msgs.push(a.reason === "timeout" ? "Confirmation timed out" : "Cancelled"); }

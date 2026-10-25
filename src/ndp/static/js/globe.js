@@ -104,8 +104,35 @@
         time: Number(p.time), url: url, color: magColor(mag)
       });
     });
-    out.sort(function (a, b) { return b.mag - a.mag; });
-    return out;
+    return collapseDuplicates(out).sort(function (a, b) { return b.mag - a.mag; });
+  }
+
+  /* The feed can list one earthquake several times (different contributing networks, for
+   * example the Pacific Tsunami Warning Center). Treat events within 90 s, 50 km and 0.5
+   * magnitude of each other as one and prefer a core-network id ("us...") then the stronger.
+   * The server applies the same rule (services/usgs.py). */
+  function distanceKm(a, b) {
+    var rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad;
+    var dLon = ((((b.lon - a.lon) + 540) % 360) - 180) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  function collapseDuplicates(list) {
+    var ranked = list.slice().sort(function (a, b) {
+      var pa = a.id.indexOf("us") === 0 ? 0 : 1, pb = b.id.indexOf("us") === 0 ? 0 : 1;
+      return pa - pb || b.mag - a.mag;
+    });
+    var kept = [];
+    ranked.forEach(function (q) {
+      var dup = kept.some(function (k) {
+        return Math.abs(q.time - k.time) <= 90000 && Math.abs(q.mag - k.mag) <= 0.5 && distanceKm(q, k) <= 50;
+      });
+      if (!dup) kept.push(q);
+    });
+    return kept;
   }
 
   function setFeedState(kind, message) {

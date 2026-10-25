@@ -5,10 +5,15 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_text
 from ndp.ml import registry, sentiment
+from ndp.ml.features import DataMissing
 from ndp.services import ServiceError, llm, triage
+from ndp.services.ratelimit import RateLimiter
 from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/sentiment")
+
+# Scores computed on demand because `ndp-train` has not run; kept for the life of the process.
+_computed: dict[str, dict] = {}
 
 # One click fills the triage box. The first mirrors the 2015 Chennai flood threads in the data.
 TRIAGE_EXAMPLES = [
@@ -48,7 +53,7 @@ def _rows() -> list[dict]:
                 "slug": d.slug,
                 "name": d.name,
                 "image": d.image,
-                "monetary_impact_busd": d.monetary_impact_busd,
+                "monetary_impact": d.monetary_impact,
                 "score": entry.get("score"),
                 "n_posts": entry.get("n_posts"),
             }
@@ -93,6 +98,19 @@ def sentiment_score_text(request: Request, text: str = Form("")):
 
 _NOT_CONFIGURED = "not_configured"
 
+# Each triage call costs real money on the owner's key: cap it per client address.
+triage_limiter = RateLimiter(20, 600.0)  # single posts
+sample_limiter = RateLimiter(4, 600.0)  # each click makes up to five calls
+
+
+def _too_many(limiter: RateLimiter, request: Request) -> str | None:
+    allowed, retry = limiter.hit(request.client.host if request.client else "unknown")
+    return (
+        None
+        if allowed
+        else f"Too many requests from this address. Try again in {int(retry) + 1} seconds."
+    )
+
 
 @router.post("/triage", name="sentiment_triage")
 def sentiment_triage(request: Request, text: str = Form("")):
@@ -105,6 +123,8 @@ def sentiment_triage(request: Request, text: str = Form("")):
 
     if not llm.is_configured():
         return respond(triage_state=_NOT_CONFIGURED, triage_text=text)
+    if refused := _too_many(triage_limiter, request):
+        return respond(triage_error=refused, triage_text=text)
     try:
         clean = parse_text(text, "Post", triage.MAX_POST_CHARS)
         result = triage.triage_post(clean)
@@ -125,6 +145,8 @@ def sentiment_triage_sample(request: Request, dataset: str = Form("")):
     if not llm.is_configured():
         return respond(sample_state=_NOT_CONFIGURED)
     slug = dataset.strip() or sentiment.DISASTERS[0].slug
+    if refused := _too_many(sample_limiter, request):
+        return respond(sample_error=refused, sample_slug=slug)
     try:
         pairs = triage.triage_sample(slug, triage.MAX_SAMPLE)
     except ServiceError as exc:
@@ -149,6 +171,11 @@ def sentiment_score(request: Request, slug: str):
     if row["score"] is None:
         # Not precomputed yet (ndp-train not run): compute on demand, once, and cache it.
         disaster = next(d for d in sentiment.DISASTERS if d.slug == slug)
-        scored = sentiment.score_dataset(disaster)
+        scored = _computed.get(slug)
+        if scored is None:
+            try:
+                scored = _computed[slug] = sentiment.score_dataset(disaster)
+            except DataMissing as exc:
+                return render(request, "sentiment/_score.html", row=row, error=str(exc))
         row.update(score=scored["score"], n_posts=scored["n_posts"])
     return render(request, "sentiment/_score.html", row=row)

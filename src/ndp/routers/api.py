@@ -1,4 +1,4 @@
-"""JSON API mirroring the HTML prediction forms. Phase 3 (agent tools) builds on this."""
+"""JSON API mirroring the HTML prediction forms (interactive docs at /docs)."""
 
 from __future__ import annotations
 

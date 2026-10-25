@@ -17,3 +17,31 @@ def _isolated_dirs(tmp_path_factory):
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Per-client limiters are module state; a test must not inherit another test's hits."""
+    from ndp.routers import alerts
+    from ndp.routers import sentiment as sentiment_router
+    from ndp.services import assistant
+
+    for limiter in (
+        alerts.send_limiter,
+        alerts.translate_limiter,
+        sentiment_router.triage_limiter,
+        sentiment_router.sample_limiter,
+        assistant.rate_limiter,
+    ):
+        limiter.reset()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_settings():
+    """Settings are cached; tests that change NDP_* variables must not leak into the next test."""
+    from ndp.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()

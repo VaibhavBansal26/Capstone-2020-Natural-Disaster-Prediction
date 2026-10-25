@@ -3,6 +3,8 @@
 .ndp-voice-bar {
   display: flex;
   justify-content: flex-end;
+  align-items: flex-start; /* never stretch the button when the bar is a grid or flex child */
+  align-self: start;
   margin-bottom: -0.25rem;
 }
 .ndp-voice-bar[hidden] { display: none; }
@@ -10,6 +12,7 @@
 
 .ndp-voice-read {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: 0.375rem;
   border: 1px solid #cbd5e1;
