@@ -5,8 +5,7 @@ from collections import deque
 from fastapi import APIRouter, Form, Request
 
 from ndp.forms import FormError, parse_float
-from ndp.ml import earthquake as eq
-from ndp.ml import hazard, registry
+from ndp.ml import catalogue, hazard, registry
 from ndp.services import ServiceError, usgs
 from ndp.web import page_or_partial, render
 
@@ -37,7 +36,7 @@ _recent: deque[dict] = deque(maxlen=8)
 
 def _stats() -> dict | None:
     try:
-        return eq.stats()
+        return catalogue.stats()
     except registry.ModelNotTrained:
         return None
 
@@ -105,8 +104,8 @@ def earthquake_graphs(request: Request):
         "earthquake/graphs.html",
         stats=_stats(),
         plots=PLOTS,
-        meta=registry.metadata(eq.MODEL),
-        trained=registry.is_trained(eq.MODEL),
+        meta=registry.metadata(hazard.MODEL),
+        trained=registry.is_trained(hazard.MODEL),
     )
 
 

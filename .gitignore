@@ -27,3 +27,6 @@ src/ndp/static/generated/
 
 # Runtime state (watcher dedupe etc.)
 state/
+
+# Local tooling
+.claude/

@@ -6,8 +6,7 @@ from fastapi import APIRouter, Request
 
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_date, parse_float
-from ndp.ml import compare, covid, flood, hurricane, registry, sentiment, storm, tsunami
-from ndp.ml import earthquake as eq
+from ndp.ml import compare, covid, flood, hazard, hurricane, registry, sentiment, storm, tsunami
 from ndp.web import page_or_partial, render
 
 router = APIRouter()
@@ -33,7 +32,7 @@ def index(request: Request):
             "name": "Earthquake",
             "blurb": "Historical earthquake hazard by place, plus the live USGS feed.",
             "endpoint": "earthquake_page",
-            "status": _status(eq.MODEL),
+            "status": _status(hazard.MODEL),
         },
         {
             "name": "Tsunami",

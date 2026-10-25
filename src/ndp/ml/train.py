@@ -2,7 +2,7 @@
 
 uv run ndp-train                     # everything except covid
 uv run ndp-train --quick             # smaller compare subsample, no sentiment
-uv run ndp-train flood storm         # a subset (flood hazard earthquake ...)
+uv run ndp-train flood storm         # a subset (flood hazard catalogue ...)
 uv run ndp-train --include-covid     # also the COVID-19 model (on by default)
 """
 
@@ -19,9 +19,9 @@ from sklearn.exceptions import ConvergenceWarning
 
 from ndp.config import get_settings
 from ndp.ml import (
+    catalogue,
     compare,
     covid,
-    earthquake,
     flood,
     hazard,
     hurricane,
@@ -33,7 +33,7 @@ from ndp.ml.features import DataMissing
 
 TRAINERS: dict[str, Callable[[], dict]] = {
     "flood": flood.train,
-    "earthquake": earthquake.train,
+    "catalogue": catalogue.train,
     "hazard": hazard.train,
     "tsunami": tsunami.train,
     "hurricane": hurricane.train,

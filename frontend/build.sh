@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Compile Tailwind to a static stylesheet so pages do not ship the 300 KB in-browser compiler.
+# Run after changing templates or static JS that use new utility classes. Needs Node (npx).
+set -eu
+cd "$(dirname "$0")/.."  # repository root
+npx --yes tailwindcss@3.4.17 \
+  -c frontend/tailwind.config.js \
+  -i frontend/tailwind.input.css \
+  -o src/ndp/static/css/tailwind.css \
+  --minify
+ls -l src/ndp/static/css/tailwind.css

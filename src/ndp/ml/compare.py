@@ -66,9 +66,9 @@ class ModelResult:
 
 
 def _earthquake_frame() -> pd.DataFrame:
-    from ndp.ml import earthquake
+    from ndp.ml import catalogue
 
-    return earthquake.load_frame()[["Latitude", "Longitude", "Depth", "Magnitude"]]
+    return catalogue.load_frame()[["Latitude", "Longitude", "Depth", "Magnitude"]]
 
 
 def _tsunami_frame() -> pd.DataFrame:

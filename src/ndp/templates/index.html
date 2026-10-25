@@ -4,10 +4,10 @@
 
 {% block head %}
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="{{ url_for('static', path='globe.css').path }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/globe.css').path }}">
   {# Heavy 3D library: loaded on this page only. Deferred scripts run in order, after Leaflet (base.html). #}
   <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.35.0/dist/globe.gl.min.js" defer></script>
-  <script src="{{ url_for('static', path='globe.js').path }}" defer></script>
+  <script src="{{ url_for('static', path='js/globe.js').path }}" defer></script>
 {% endblock %}
 
 {% block content %}

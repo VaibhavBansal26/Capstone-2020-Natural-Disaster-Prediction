@@ -5,7 +5,9 @@ services:
   - type: web
     name: natural-disaster-prediction
     runtime: docker
-    plan: starter            # the trained comparison models need roughly 1 GB of RAM
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    plan: starter            # about 480 MB resident with all models loaded; 1 GB leaves headroom
     healthCheckPath: /healthz
     disk:
       name: ndp-data
