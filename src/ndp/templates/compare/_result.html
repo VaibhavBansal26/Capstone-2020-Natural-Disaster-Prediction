@@ -1,0 +1,53 @@
+{% from "partials/_form_bits.html" import badge, error_box, inputs_list, fmt, bar %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}) }}
+{% elif results is defined and results %}
+  {% set _unit = unit if unit is defined else '' %}
+  {% set best = results|max(attribute='accuracy_pct') %}
+  {% set _labels = {} %}
+  {% if hazard is defined and hazard %}{% for f in hazard.input_fields %}{% set _ = _labels.update({f.name: f.label}) %}{% endfor %}{% endif %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Four models, one input{% if hazard is defined and hazard %} · {{ hazard.title }}{% endif %}</h3>
+      {{ badge('Best: ' ~ best.name, 'ok') }}
+    </div>
+    <div class="mt-4 -mx-5 sm:mx-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th scope="col" class="px-3 py-2">Model</th>
+            <th scope="col" class="px-3 py-2 text-right">Prediction{% if _unit %} ({{ _unit }}){% endif %}</th>
+            <th scope="col" class="px-3 py-2 text-right">Accuracy %</th>
+            <th scope="col" class="px-3 py-2 text-right">R²</th>
+            <th scope="col" class="px-3 py-2 text-right">RMSE</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for m in results %}
+          <tr class="{{ 'bg-emerald-50/60' if m.name == best.name else '' }}">
+            <td class="px-3 py-2 font-medium text-slate-900">{{ m.name }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.prediction) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.accuracy_pct) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.r2, 3) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.rmse) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-5">
+      <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Accuracy (within 10 % of the target range)</p>
+      <ul class="space-y-2 text-sm">
+        {% for m in results %}
+        <li class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] items-center gap-3">
+          <span class="truncate text-slate-700">{{ m.name }}</span>
+          {{ bar(m.accuracy_pct, 'bg-emerald-600' if m.name == best.name else 'bg-brand-600', m.name ~ ' ' ~ fmt(m.accuracy_pct, 1) ~ '%') }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Accuracy counts a test row as correct when the error is within 10 % of the largest target value; R² and RMSE are on the same held-out split. Nothing is trained per request.</p>
+  </div>
+{% endif %}

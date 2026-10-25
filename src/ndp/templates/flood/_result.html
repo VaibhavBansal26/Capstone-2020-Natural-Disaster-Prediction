@@ -1,0 +1,27 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt, bar %}
+{% set _labels = {'cumulative_rainfall': 'Cumulative rainfall (mm)'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_flood else 'border-slate-200 bg-white' }} p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Estimated river level</h3>
+      {% if result.is_flood %}{{ badge('Flood', 'danger') }}{% else %}{{ badge('No flood', 'ok') }}{% endif %}
+    </div>
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {{ metric('Level', fmt(result.level_m), 'm') }}
+      {{ metric('Flood threshold', fmt(result.threshold_m), 'm') }}
+      {{ metric('Margin', ('+' if result.level_m - result.threshold_m > 0 else '') ~ fmt(result.level_m - result.threshold_m), 'm') }}
+    </div>
+    <div class="mt-4">
+      <p class="text-xs text-slate-500 mb-1">Level relative to threshold</p>
+      {{ bar((result.level_m / result.threshold_m * 100) if result.threshold_m else 0, 'bg-rose-600' if result.is_flood else 'bg-brand-600', fmt(result.level_m) ~ ' m of ' ~ fmt(result.threshold_m) ~ ' m') }}
+    </div>
+    <p class="mt-4 text-sm text-slate-600">
+      {% if result.is_flood %}The estimated level exceeds the {{ fmt(result.threshold_m) }} m flood threshold for the Hoppers Crossing gauge.{% else %}Below the {{ fmt(result.threshold_m) }} m threshold at which the Hoppers Crossing gauge is considered to be flooding.{% endif %}
+    </p>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Linear regression of river level on cumulative rainfall for a single gauge. Not a forecast.</p>
+  </div>
+{% endif %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card, badge %}
+{% block title %}Weather check{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Weather check</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">Compare the current weather at a point with what the surrounding weather stations report, using the OpenWeather API. Unlike the other modules this one needs an API key and makes a live request.</p>
+  </div>
+  {% if configured %}{{ badge('OpenWeather configured', 'ok') }}{% else %}{{ badge('Not configured', 'muted') }}{% endif %}
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-3 space-y-6">
+    {% if configured %}
+      {% call card('Location', 'City name for display, plus coordinates in decimal degrees.') %}
+        <form method="post" action="{{ url_for('weather_predict') }}"
+              hx-post="{{ url_for('weather_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+              class="space-y-4">
+          {{ field('city', 'City', type='text', value=v.get('city', 'New Delhi'), placeholder='e.g. New Delhi') }}
+          <div class="grid grid-cols-2 gap-4">
+            {{ field('lat', 'Latitude', value=v.get('lat', 28.6), min=-90, max=90) }}
+            {{ field('lon', 'Longitude', value=v.get('lon', 77.2), min=-180, max=180) }}
+          </div>
+          {{ submit('Check weather') }}
+        </form>
+      {% endcall %}
+    {% else %}
+      <section class="rounded-xl border border-amber-200 bg-amber-50 p-6">
+        <h2 class="text-base font-semibold text-amber-900">OpenWeather API key not configured</h2>
+        <p class="mt-2 text-sm text-amber-900/90">This module calls the OpenWeather API and is disabled until a key is provided. Set the environment variable below (or add it to your <code class="font-mono text-xs">.env</code> file) and restart the server. No key is stored in code or templates.</p>
+        <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">NDP_OPENWEATHER_API_KEY=your-key-here</pre>
+        <p class="mt-3 text-xs text-amber-900/80">A free key from <a class="underline" href="https://openweathermap.org/api" rel="noopener" target="_blank">openweathermap.org</a> is sufficient.</p>
+      </section>
+    {% endif %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "weather/_result.html" %}{% endif %}
+    </div>
+  </div>
+  <div class="lg:col-span-2">
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-slate-900">How it works</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+        <li>Fetch the current observation for the given coordinates.</li>
+        <li>Fetch the stations in a box around the point and take the most common condition as the "prediction".</li>
+        <li>Report whether prediction and observation agree, and the conditions seen nearby.</li>
+      </ol>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt, bar %}
+{% set _labels = {'temperature': 'Temperature (°F)', 'pressure': 'Pressure (hPa)', 'humidity': 'Humidity (%)', 'wind_direction': 'Wind direction (°)', 'wind_speed': 'Wind speed'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  {% set lower = result.label|lower %}
+  {% set severe = 'storm' in lower or 'thunder' in lower or 'squall' in lower or 'tornado' in lower or 'hail' in lower %}
+  {% set tone = 'danger' if severe else ('warn' if ('rain' in lower or 'snow' in lower or 'drizzle' in lower) else 'ok') %}
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if severe else 'border-slate-200 bg-white' }} p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Most likely weather class</h3>
+      {{ badge(result.label|capitalize, tone) }}
+    </div>
+    <p class="mt-3 text-2xl font-semibold text-slate-900">{{ result.label|capitalize }}</p>
+    {% if result.top %}
+    <div class="mt-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Top classes by probability</p>
+      <ol class="space-y-2 text-sm">
+        {% for name, p in result.top %}
+        <li class="grid grid-cols-[1fr_minmax(0,2fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] items-center gap-3">
+          <span class="truncate text-slate-700 {{ 'font-medium' if loop.first else '' }}">{{ name|capitalize }}</span>
+          {{ bar(p * 100, 'bg-brand-600' if loop.first else 'bg-slate-400', name ~ ' ' ~ fmt(p * 100, 1) ~ '%') }}
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Decision-tree classifier over hourly weather observations (temperature, pressure, humidity, wind direction and speed). Not a forecast.</p>
+  </div>
+{% endif %}

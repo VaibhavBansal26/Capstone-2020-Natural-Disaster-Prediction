@@ -1,0 +1,31 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt %}
+{% set _labels = {'lat': 'Latitude', 'lon': 'Longitude', 'depth': 'Depth (km)', 'date': 'Date'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  {% set tone = {'minor': 'ok', 'light': 'info', 'moderate': 'warn', 'strong': 'danger'}.get(result.severity, 'muted') %}
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.alert else 'border-slate-200 bg-white' }} p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Estimated magnitude</h3>
+      <div class="flex items-center gap-2">
+        {{ badge(result.severity|capitalize, tone) }}
+        {% if result.alert %}{{ badge('Alert: M ≥ 6', 'danger') }}{% else %}{{ badge('No alert', 'ok') }}{% endif %}
+      </div>
+    </div>
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {{ metric('Magnitude', fmt(result.magnitude), 'Mw') }}
+      {{ metric('Severity', result.severity|capitalize) }}
+      {{ metric('Alert threshold', '6.00', 'Mw') }}
+    </div>
+    <p class="mt-4 text-sm text-slate-600">
+      {% if result.alert %}
+        An event of this size at this location and depth would be classed as <strong>strong</strong>. In the original project this triggered an alert to the configured contacts.
+      {% else %}
+        Below the alert threshold. Severity bands: minor (&lt;4), light (4–5), moderate (5–6), strong (≥6).
+      {% endif %}
+    </p>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Neural-network regression over the USGS significant-earthquakes catalogue (latitude, longitude, depth, date). Not a forecast.</p>
+  </div>
+{% endif %}

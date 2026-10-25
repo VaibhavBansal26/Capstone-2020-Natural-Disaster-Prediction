@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card, badge, fmt %}
+{% block title %}Earthquake prediction{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Earthquake prediction</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">Estimate the magnitude an earthquake at a given location, depth and date would have, using a neural network trained on the USGS catalogue of significant earthquakes since 1965. Pick a point on the map or type coordinates.</p>
+  </div>
+  <a href="{{ url_for('earthquake_graphs') }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Graphical analysis &rarr;</a>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Inputs', 'Latitude and longitude in decimal degrees; depth of the hypocentre in kilometres.') %}
+      <form method="post" action="{{ url_for('earthquake_predict') }}"
+            hx-post="{{ url_for('earthquake_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-sm font-medium text-slate-700">Latitude</span>
+            <input id="eq-lat" name="lat" type="number" step="any" min="-90" max="90" required value="{{ v.get('lat', 28.6) }}"
+                   class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-slate-700">Longitude</span>
+            <input id="eq-lon" name="lon" type="number" step="any" min="-180" max="180" required value="{{ v.get('lon', 77.2) }}"
+                   class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+          </label>
+        </div>
+        {{ field('depth', 'Depth (km)', value=v.get('depth', 10), min=0, max=800, help='Most damaging quakes are shallow (under 70 km).') }}
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Date</span>
+          <input name="date" type="date" required value="{{ v.get('date', '') }}" data-default-today
+                 class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+        </label>
+        {{ submit('Estimate magnitude') }}
+      </form>
+    {% endcall %}
+
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "earthquake/_result.html" %}{% endif %}
+    </div>
+
+    {% include "partials/_model_card.html" %}
+  </div>
+
+  <div class="lg:col-span-3 space-y-6">
+    <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-2">
+        <h2 class="text-base font-semibold text-slate-900">Live USGS feed</h2>
+        <p id="eq-map-status" class="text-xs text-slate-500" aria-live="polite">Loading…</p>
+      </div>
+      <p class="px-2 mt-1 text-xs text-slate-500">Circles are recent earthquakes reported by the United States Geological Survey, sized by magnitude. Drag the pin or click anywhere to fill in the coordinates.</p>
+      <div id="eq-map" class="mt-3 h-80 sm:h-96 w-full rounded-lg bg-slate-100" role="application" aria-label="Map of recent earthquakes"
+           data-ndp-map data-lat="{{ v.get('lat', 28.6) }}" data-lon="{{ v.get('lon', 77.2) }}" data-zoom="3"
+           data-usgs-url="{{ usgs_feed_url if usgs_feed_url is defined else '' }}"
+           data-pick-lat="#eq-lat" data-pick-lon="#eq-lon" data-status="#eq-map-status"></div>
+      <noscript><p class="mt-2 px-2 text-xs text-slate-500">Enable JavaScript to see the live map.</p></noscript>
+    </section>
+
+    {% if stats %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-slate-900">Catalogue at a glance</h2>
+      <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Events</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ '{:,}'.format(stats.n_events|int) if stats.n_events is defined else '–' }}</dd></div>
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Mean magnitude</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ fmt(stats.mean_mag) if stats.mean_mag is defined else '–' }}</dd></div>
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Range</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ fmt(stats.min_mag, 1) if stats.min_mag is defined else '–' }}–{{ fmt(stats.max_mag, 1) if stats.max_mag is defined else '–' }}</dd></div>
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Busiest year</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ stats.busiest_year if stats.busiest_year is defined else '–' }}<span class="text-sm font-normal text-slate-500 ml-1">{{ ('(' ~ stats.busiest_year_count ~ ')') if stats.busiest_year_count is defined else '' }}</span></dd></div>
+      </dl>
+    </section>
+    {% endif %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-slate-900">Recent queries</h2>
+      <p class="mt-1 text-sm text-slate-500">The latest estimates made on this server (kept in memory, newest first). Rows at or above magnitude 6 are highlighted.</p>
+      {% if recent %}
+      <div class="mt-4 -mx-6 sm:mx-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr><th class="px-3 py-2">Latitude</th><th class="px-3 py-2">Longitude</th><th class="px-3 py-2">Depth</th><th class="px-3 py-2">Date</th><th class="px-3 py-2">Magnitude</th><th class="px-3 py-2">Alert</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for r in recent %}
+            <tr class="{{ 'bg-rose-50' if r.alert else '' }}">
+              <td class="px-3 py-2 tabular-nums">{{ fmt(r.lat) }}</td>
+              <td class="px-3 py-2 tabular-nums">{{ fmt(r.lon) }}</td>
+              <td class="px-3 py-2 tabular-nums">{{ fmt(r.depth) }} km</td>
+              <td class="px-3 py-2">{{ r.date }}</td>
+              <td class="px-3 py-2 font-medium tabular-nums">{{ fmt(r.magnitude) }}</td>
+              <td class="px-3 py-2">{% if r.alert %}{{ badge('Alert', 'danger') }}{% else %}{{ badge('None', 'ok') }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="mt-4 text-sm text-slate-500">No estimates yet.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

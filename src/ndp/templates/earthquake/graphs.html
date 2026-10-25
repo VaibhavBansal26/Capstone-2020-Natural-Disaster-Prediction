@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import fmt, bar %}
+{% block title %}Earthquake graphical analysis{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Earthquake graphical analysis</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">How the significant-earthquake catalogue is distributed by magnitude, month, year and depth, as computed during training.</p>
+  </div>
+  <a href="{{ url_for('earthquake_page') }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">&larr; Back to prediction</a>
+</div>
+
+{% if stats %}
+<section class="mt-6 grid gap-6 lg:grid-cols-2">
+  <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">Summary</h2>
+    <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Events</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ '{:,}'.format(stats.n_events|int) if stats.n_events is defined else '–' }}</dd></div>
+      <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Mean magnitude</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ fmt(stats.mean_mag) if stats.mean_mag is defined else '–' }}</dd></div>
+      <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Smallest / largest</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ fmt(stats.min_mag, 1) if stats.min_mag is defined else '–' }} / {{ fmt(stats.max_mag, 1) if stats.max_mag is defined else '–' }}</dd></div>
+      <div class="rounded-lg bg-slate-50 border border-slate-200 p-3"><dt class="text-xs uppercase tracking-wide text-slate-500">Busiest year</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ stats.busiest_year if stats.busiest_year is defined else '–' }} <span class="text-sm font-normal text-slate-500">{{ ('(' ~ stats.busiest_year_count ~ ' events)') if stats.busiest_year_count is defined else '' }}</span></dd></div>
+    </dl>
+  </div>
+
+  {% if stats.magnitude_bins %}
+  {% set maxbin = stats.magnitude_bins.values()|max %}
+  <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">Events by magnitude band</h2>
+    <ul class="mt-4 space-y-2 text-sm">
+      {% for label, n in stats.magnitude_bins.items() %}
+      <li class="grid grid-cols-[4rem_1fr_4rem] items-center gap-3">
+        <span class="text-slate-600">M {{ label }}</span>
+        <div class="h-2.5 rounded-full bg-slate-200 overflow-hidden" role="img" aria-label="{{ n }} events"><div class="h-full bg-brand-600 rounded-full" style="width: {{ fmt((n / maxbin * 100) if maxbin else 0, 1) }}%"></div></div>
+        <span class="text-right tabular-nums text-slate-700">{{ '{:,}'.format(n|int) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if stats.by_month %}
+  {% set maxm = stats.by_month.values()|max %}
+  {% set months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+  <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm lg:col-span-2">
+    <h2 class="text-base font-semibold text-slate-900">Events by month</h2>
+    <ol class="mt-4 grid grid-cols-6 sm:grid-cols-12 gap-2 items-end h-40">
+      {% for key, n in stats.by_month.items() %}
+      <li class="flex flex-col items-center justify-end h-full text-xs text-slate-600">
+        <span class="tabular-nums mb-1">{{ n }}</span>
+        <div class="w-full rounded-t bg-brand-600/80" style="height: {{ fmt((n / maxm * 100) if maxm else 0, 1) }}%" role="img" aria-label="{{ n }} events"></div>
+        <span class="mt-1">{{ months[(key|int) - 1] if (key|int) >= 1 and (key|int) <= 12 else key }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+</section>
+{% else %}
+<p class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Catalogue statistics are produced during training. Run <code class="font-mono text-xs">uv run ndp-train earthquake</code> to generate them.</p>
+{% endif %}
+
+<div class="mt-6">
+  {% set plots_title = 'Plots' %}
+  {% include "partials/_plots.html" %}
+</div>
+{% endblock %}

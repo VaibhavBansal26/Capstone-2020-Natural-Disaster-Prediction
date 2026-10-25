@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card %}
+{% block title %}Flood prediction{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Flood prediction</h1>
+<p class="mt-1 max-w-2xl text-sm text-slate-600">Estimate the river level at the Hoppers Crossing gauge (Werribee River, Victoria, Australia) from the rainfall accumulated so far, and whether it would exceed the 1.44 m flood threshold. A deliberately simple linear model: more rain, higher river.</p>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Inputs', 'Rainfall accumulated over the event, in millimetres.') %}
+      <form method="post" action="{{ url_for('flood_predict') }}"
+            hx-post="{{ url_for('flood_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        {{ field('cumulative_rainfall', 'Cumulative rainfall (mm)', value=v.get('cumulative_rainfall', 200), min=0, help='The training data ranges from 0 to a few hundred millimetres.') }}
+        {{ submit('Estimate river level') }}
+      </form>
+    {% endcall %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "flood/_result.html" %}{% endif %}
+    </div>
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+    {% include "partials/_model_card.html" %}
+    {% include "partials/_plots.html" %}
+  </div>
+</div>
+{% endblock %}

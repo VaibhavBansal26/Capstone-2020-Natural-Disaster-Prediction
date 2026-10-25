@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Natural Disaster Prediction{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eff6ff', 600:'#2563eb', 700:'#1d4ed8', 900:'#1e3a8a' } } } } }
+  </script>
+  <style>
+    .htmx-indicator { opacity: 0; transition: opacity .2s; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+    .leaflet-container { font: inherit; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="min-h-full bg-slate-50 text-slate-800 antialiased flex flex-col">
+  {% set nav = [
+    ('earthquake_page', 'Earthquake'),
+    ('tsunami_page', 'Tsunami'),
+    ('flood_page', 'Flood'),
+    ('hurricane_page', 'Hurricane'),
+    ('storm_page', 'Storm'),
+    ('weather_page', 'Weather'),
+    ('alerts_page', 'Alerts'),
+    ('sentiment_page', 'Sentiment'),
+    ('compare_page', 'Compare'),
+  ] %}
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="mx-auto max-w-7xl px-4 h-14 flex items-center gap-6">
+      <a href="{{ url_for('index') }}" class="font-semibold tracking-tight text-brand-900 whitespace-nowrap">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 mr-2 align-middle"></span>Disaster Prediction
+      </a>
+      <nav class="hidden lg:flex items-center gap-1 text-sm">
+        {% for endpoint, label in nav %}
+          <a href="{{ url_for(endpoint) }}"
+             class="px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if request.url.path == url_for(endpoint).path else 'text-slate-600' }}">{{ label }}</a>
+        {% endfor %}
+        {% if settings.enable_covid %}
+          <a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600 hover:bg-rose-50">COVID (archived)</a>
+        {% endif %}
+      </nav>
+      <details class="lg:hidden ml-auto relative">
+        <summary class="list-none cursor-pointer px-2 py-1 rounded-md border border-slate-200 text-sm">Menu</summary>
+        <div class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-sm flex flex-col">
+          {% for endpoint, label in nav %}
+            <a href="{{ url_for(endpoint) }}" class="px-2.5 py-1.5 rounded-md hover:bg-slate-100">{{ label }}</a>
+          {% endfor %}
+          {% if settings.enable_covid %}<a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600">COVID (archived)</a>{% endif %}
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main class="flex-1 mx-auto w-full max-w-7xl px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-6 text-xs text-slate-500 flex flex-col sm:flex-row gap-2 sm:justify-between">
+      <span>VIT capstone 2020, modernised. Outputs are statistical estimates from historical data, not operational forecasts or warnings.</span>
+      <a class="hover:text-slate-800" href="https://github.com/VaibhavBansal26/Capstone-2020-Natural-Disaster-Prediction">Source on GitHub</a>
+    </div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

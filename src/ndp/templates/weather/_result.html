@@ -1,0 +1,30 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt %}
+{% set _labels = {'city': 'City', 'lat': 'Latitude', 'lon': 'Longitude'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">{{ result.city or 'Selected location' }}</h3>
+      {% if result.matched %}{{ badge('Prediction matched', 'ok') }}{% else %}{{ badge('Prediction not matched', 'warn') }}{% endif %}
+    </div>
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {{ metric('Predicted', result.prediction) }}
+      {{ metric('Actual (now)', result.actual) }}
+      {{ metric('Stations', result.station_count) }}
+      {{ metric('Position', fmt(result.lat) ~ ', ' ~ fmt(result.lon)) }}
+    </div>
+    {% if result.labels %}
+    <p class="mt-4 text-xs uppercase tracking-wide text-slate-500">Conditions reported nearby</p>
+    <ul class="mt-1 flex flex-wrap gap-2">
+      {% for l in result.labels %}<li>{{ badge(l, 'muted') }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p class="mt-4 text-sm text-slate-600">
+      {% if result.matched %}The majority condition among nearby stations agrees with the current observation for this point.{% else %}Nearby stations currently report a different dominant condition than the one observed at this point, so treat the estimate with care.{% endif %}
+    </p>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Live data from OpenWeather. This module queries an external API; it is not one of the trained models.</p>
+  </div>
+{% endif %}

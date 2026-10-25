@@ -1,0 +1,12 @@
+/* Small additions Tailwind utilities cannot express. */
+
+/* Keep Leaflet's internal z-indexes (panes 400, controls 1000) inside the map box
+   so they never float above the sticky header. */
+.leaflet-container { z-index: 0; isolation: isolate; }
+
+/* Tailwind display utilities (flex, grid) would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
+
+/* Leaflet popups inherit the page font and get a little breathing room. */
+.leaflet-popup-content { margin: 10px 14px; line-height: 1.4; font-size: 0.8125rem; }
+.leaflet-popup-content p { margin: 0.25rem 0; }

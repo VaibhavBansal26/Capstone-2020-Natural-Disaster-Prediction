@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card, badge %}
+{% block title %}Storm classification{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Storm classification</h1>
+<p class="mt-1 max-w-2xl text-sm text-slate-600">Classify current conditions into a weather description (clear, rain, thunderstorm, …) from five readings, using a decision tree trained on hourly observations. The legacy project called this "hailstorm prediction".</p>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Readings', 'Use the same units as the training data: temperature in degrees Fahrenheit, pressure in hectopascals.') %}
+      <form method="post" action="{{ url_for('storm_predict') }}"
+            hx-post="{{ url_for('storm_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          {{ field('temperature', 'Temperature (°F)', value=v.get('temperature', 75), min=-100, max=150) }}
+          {{ field('pressure', 'Pressure (hPa)', value=v.get('pressure', 1013), min=800, max=1100) }}
+          {{ field('humidity', 'Humidity (%)', value=v.get('humidity', 60), min=0, max=100) }}
+          {{ field('wind_direction', 'Wind direction (°)', value=v.get('wind_direction', 180), min=0, max=360, help='0 = from north, 90 = from east.') }}
+        </div>
+        {{ field('wind_speed', 'Wind speed', value=v.get('wind_speed', 5), min=0, help='Same unit as the training data (metres per second).') }}
+        {{ submit('Classify') }}
+      </form>
+    {% endcall %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "storm/_result.html" %}{% endif %}
+    </div>
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+    {% include "partials/_model_card.html" %}
+    {% if classes %}
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-slate-900">Possible classes</h2>
+      <p class="mt-1 text-sm text-slate-500">The {{ classes|length }} weather descriptions the tree can output.</p>
+      <ul class="mt-3 flex flex-wrap gap-2">
+        {% for c in classes %}<li>{{ badge(c|capitalize, 'muted') }}</li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {% include "partials/_plots.html" %}
+  </div>
+</div>
+{% endblock %}

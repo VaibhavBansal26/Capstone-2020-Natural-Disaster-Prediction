@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card %}
+{% block title %}Tsunami prediction{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Tsunami prediction</h1>
+<p class="mt-1 max-w-2xl text-sm text-slate-600">Given where a tsunami originated and the maximum wave height observed, estimate the magnitude of the source earthquake and whether it falls in the destructive band. Trained on the historical tsunami event database.</p>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Inputs', 'Source coordinates in decimal degrees and the maximum water height in metres.') %}
+      <form method="post" action="{{ url_for('tsunami_predict') }}"
+            hx-post="{{ url_for('tsunami_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          {{ field('lat', 'Latitude', value=v.get('lat', 38.3), min=-90, max=90) }}
+          {{ field('lon', 'Longitude', value=v.get('lon', 142.4), min=-180, max=180) }}
+        </div>
+        {{ field('max_height', 'Maximum wave height (m)', value=v.get('max_height', 10), min=0, help='Run-up or tide-gauge height in metres.') }}
+        {{ submit('Estimate magnitude') }}
+      </form>
+    {% endcall %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "tsunami/_result.html" %}{% endif %}
+    </div>
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+    {% include "partials/_model_card.html" %}
+    {% include "partials/_plots.html" %}
+  </div>
+</div>
+{% endblock %}

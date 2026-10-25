@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import tab %}
+{% block title %}COVID-19 maps (archived){% endblock %}
+{% block content %}
+{% include "covid/_banner.html" %}
+<div class="mt-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">COVID-19 maps, India (2020)</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">Test centres, and the state and city case snapshots that were current when the project was submitted. Click a marker for details.</p>
+  </div>
+  <a href="{{ url_for('covid_page') }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">&larr; Back</a>
+</div>
+
+<section class="mt-6 bg-white border border-slate-200 rounded-xl p-4 shadow-sm" data-tabs>
+  <div class="flex flex-wrap items-center justify-between gap-2 px-2">
+    <div role="tablist" aria-label="Map layers" class="flex flex-wrap gap-1">
+      {{ tab('#covid-centres', 'Test centres', active=True) }}
+      {{ tab('#covid-states', 'States') }}
+      {{ tab('#covid-cities', 'Cities') }}
+    </div>
+    <p class="text-xs text-slate-500" aria-live="polite"><span id="covid-centres-status"></span><span id="covid-states-status"></span><span id="covid-cities-status"></span></p>
+  </div>
+
+  <div id="covid-centres" data-tab-panel role="tabpanel" class="mt-3">
+    <p class="px-2 text-xs text-slate-500">ICMR-approved test centres with a geocoded address.</p>
+    <div class="mt-2 h-80 sm:h-[32rem] w-full rounded-lg bg-slate-100" role="application" aria-label="Map of COVID-19 test centres"
+         data-ndp-map data-lat="22.5" data-lon="79" data-zoom="5" data-geojson-url="{{ url_for('covid_geojson', layer='centres') }}" data-status="#covid-centres-status"></div>
+  </div>
+  <div id="covid-states" data-tab-panel role="tabpanel" class="mt-3" hidden>
+    <p class="px-2 text-xs text-slate-500">Active, confirmed, recovered and deaths per state.</p>
+    <div class="mt-2 h-80 sm:h-[32rem] w-full rounded-lg bg-slate-100" role="application" aria-label="Map of COVID-19 cases by state"
+         data-ndp-map data-lat="22.5" data-lon="79" data-zoom="5" data-geojson-url="{{ url_for('covid_geojson', layer='states') }}" data-status="#covid-states-status"></div>
+  </div>
+  <div id="covid-cities" data-tab-panel role="tabpanel" class="mt-3" hidden>
+    <p class="px-2 text-xs text-slate-500">Active, confirmed and deaths per city.</p>
+    <div class="mt-2 h-80 sm:h-[32rem] w-full rounded-lg bg-slate-100" role="application" aria-label="Map of COVID-19 cases by city"
+         data-ndp-map data-lat="22.5" data-lon="79" data-zoom="5" data-geojson-url="{{ url_for('covid_geojson', layer='cities') }}" data-status="#covid-cities-status"></div>
+  </div>
+  <noscript><p class="mt-3 px-2 text-sm text-slate-500">These maps need JavaScript. The data is also available as GeoJSON at <code>/covid/data/centres</code>, <code>/covid/data/states</code> and <code>/covid/data/cities</code>.</p></noscript>
+</section>
+{% endblock %}

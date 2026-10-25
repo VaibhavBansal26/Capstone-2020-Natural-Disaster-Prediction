@@ -1,0 +1,51 @@
+{#
+  Model card: when the artifact was trained and its headline metrics.
+  Context: `meta` (registry metadata dict or None), `trained` (bool).
+  Optional: `model_label` (string shown in the heading).
+#}
+{% from "partials/_form_bits.html" import badge, fmt %}
+{% set _labels = {
+  'r2': 'R²', 'rmse': 'RMSE', 'mae': 'MAE', 'accuracy': 'Accuracy', 'n_rows': 'Training rows',
+  'n_days': 'Days of data', 'last_date': 'Last data date', 'coef': 'Coefficient', 'intercept': 'Intercept',
+} %}
+{% set _skip = ['name', 'trained_at', 'metrics', 'classes', 'by_year', 'by_month', 'magnitude_bins'] %}
+<section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <h2 class="text-sm font-semibold text-slate-900">Model card{% if model_label is defined and model_label %} · {{ model_label }}{% endif %}</h2>
+      {% if meta and meta.name %}<p class="text-xs text-slate-500 font-mono">{{ meta.name }}</p>{% endif %}
+    </div>
+    {% if trained %}{{ badge('ready', 'ok') }}{% else %}{{ badge('needs training', 'warn') }}{% endif %}
+  </div>
+
+  {% if trained and meta %}
+    {% if meta.trained_at %}
+      <p class="mt-2 text-xs text-slate-500">Trained <time datetime="{{ meta.trained_at }}">{{ meta.trained_at|replace('T', ' ')|replace('+00:00', ' UTC') }}</time></p>
+    {% endif %}
+    <dl class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+      {% for key, value in meta.items() if key not in _skip and (value is number or value is string) %}
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
+          <dt class="text-[11px] uppercase tracking-wide text-slate-500">{{ _labels.get(key, key|replace('_', ' ')) }}</dt>
+          <dd class="mt-0.5 font-semibold text-slate-900 tabular-nums">
+            {%- if key == 'accuracy' and value is number and value <= 1 -%}
+              {{ fmt(value * 100) }}<span class="text-xs font-normal text-slate-500"> %</span>
+            {%- elif key == 'n_rows' or key == 'n_days' -%}
+              {{ '{:,}'.format(value|int) }}
+            {%- else -%}
+              {{ fmt(value) }}
+            {%- endif -%}
+          </dd>
+        </div>
+      {% endfor %}
+    </dl>
+    {% if meta.classes %}
+      <p class="mt-3 text-xs text-slate-500">Classes: {{ meta.classes|join(', ') }}</p>
+    {% endif %}
+  {% elif trained %}
+    <p class="mt-2 text-sm text-slate-600">Artifact present; no metadata sidecar was found.</p>
+  {% else %}
+    <p class="mt-2 text-sm text-slate-600">This model has not been trained on this machine yet. Nothing trains inside a web request; run the commands below once and reload.</p>
+    <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">uv run ndp-fetch-data
+uv run ndp-train</pre>
+  {% endif %}
+</section>

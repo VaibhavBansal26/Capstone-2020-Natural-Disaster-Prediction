@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card, badge %}
+{% block title %}Alerts{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Alerts and nearby help</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">Find hospitals and police stations around a place using OpenStreetMap, then send an alert with that information to the configured contacts by email and SMS. The legacy project did this with Google Places and a hard-coded phone number; keys now live only in the environment.</p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {{ badge('Email: ' ~ ('configured' if email_configured else 'not configured'), 'ok' if email_configured else 'muted') }}
+    {{ badge('SMS: ' ~ ('configured' if sms_configured else 'not configured'), 'ok' if sms_configured else 'muted') }}
+  </div>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('1. Search a place', 'Any town, address or landmark that OpenStreetMap can geocode.') %}
+      <form method="post" action="{{ url_for('alerts_search') }}"
+            hx-post="{{ url_for('alerts_search') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        {{ field('place', 'Place', type='text', value=v.get('place', ''), placeholder='e.g. Vellore, Tamil Nadu') }}
+        {{ field('radius_km', 'Radius (km)', value=v.get('radius_km', 15), min=1, max=100, step='1') }}
+        {{ submit('Find hospitals and police') }}
+      </form>
+    {% endcall %}
+
+    <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <h2 class="text-base font-semibold text-slate-900">How the flow works</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+        <li>The place name is geocoded with Nominatim (OpenStreetMap).</li>
+        <li>Hospitals and police stations within the radius are fetched from the Overpass API and shown on a map with address and phone where tagged.</li>
+        <li>A message prefilled with the nearest facilities can be sent by email (SMTP) and SMS (Twilio) when those are configured.</li>
+      </ol>
+      {% if not email_configured and not sms_configured %}
+      <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">No delivery channel is configured, so sending will report every channel as skipped. Set <code class="font-mono">NDP_SMTP_USER</code>, <code class="font-mono">NDP_SMTP_PASSWORD</code> and <code class="font-mono">NDP_ALERT_TO_EMAIL</code> for email, or the <code class="font-mono">NDP_TWILIO_*</code> variables and <code class="font-mono">NDP_ALERT_TO_NUMBER</code> for SMS.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div id="result" class="lg:col-span-3" aria-live="polite">
+    {% if place is defined or error is defined %}
+      {% include "alerts/_results.html" %}
+    {% else %}
+      <div class="flex h-full min-h-[16rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/60 p-6 text-center text-sm text-slate-500">Search a place to see nearby hospitals and police stations here.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
