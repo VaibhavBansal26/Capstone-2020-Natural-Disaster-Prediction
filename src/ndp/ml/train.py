@@ -2,7 +2,7 @@
 
 uv run ndp-train                     # everything except covid
 uv run ndp-train --quick             # smaller compare subsample, no sentiment
-uv run ndp-train flood storm         # a subset
+uv run ndp-train flood storm         # a subset (flood hazard earthquake ...)
 uv run ndp-train --include-covid     # also the COVID-19 model (on by default)
 """
 
@@ -18,12 +18,23 @@ from functools import partial
 from sklearn.exceptions import ConvergenceWarning
 
 from ndp.config import get_settings
-from ndp.ml import compare, covid, earthquake, flood, hurricane, sentiment, storm, tsunami
+from ndp.ml import (
+    compare,
+    covid,
+    earthquake,
+    flood,
+    hazard,
+    hurricane,
+    sentiment,
+    storm,
+    tsunami,
+)
 from ndp.ml.features import DataMissing
 
 TRAINERS: dict[str, Callable[[], dict]] = {
     "flood": flood.train,
     "earthquake": earthquake.train,
+    "hazard": hazard.train,
     "tsunami": tsunami.train,
     "hurricane": hurricane.train,
     "storm": storm.train,
@@ -35,18 +46,47 @@ TRAINERS: dict[str, Callable[[], dict]] = {
 QUICK_COMPARE_MAX_ROWS = 3000
 
 
+def _skill(result: dict) -> str:
+    return f"skill={result['skill']:+.2f} (baseline rmse {result['baseline_rmse']:.3g})"
+
+
 def _headline(name: str, result: dict) -> str:
+    if name == "flood":
+        parts = []
+        for hours, scores in result["horizons"].items():
+            verdict = "beats" if scores["beats_persistence"] else "does NOT beat"
+            parts.append(
+                f"{hours}h rmse={scores['rmse']:.4f} vs persistence "
+                f"{scores['persistence_rmse']:.4f} "
+                f"(skill {scores['skill_vs_persistence']:+.2f}, {verdict})"
+            )
+        return "; ".join(parts)
+    if name == "hazard":
+        bt = result["backtest"]
+        return (
+            f"{result['n_events']} events, b={result['b_value_global']:.2f}, "
+            f"backtest lift {bt['lift']:.1f}x (active cells hold "
+            f"{bt['share_of_test_events_in_active_cells']:.0%} of later M6+ events "
+            f"in {bt['share_of_globe_in_active_cells']:.0%} of the globe)"
+        )
     if name == "storm":
-        return f"accuracy={result['accuracy']:.3f}"
+        return (
+            f"{result['model_type']} accuracy={result['accuracy']:.3f} vs majority-class "
+            f"baseline {result['baseline_accuracy']:.3f} (skill {result['skill']:+.2f})"
+        )
     if name == "compare":
         parts = []
-        for hazard, meta in result.items():
-            best = max(meta["metrics"].items(), key=lambda kv: kv[1]["accuracy_pct"])
-            parts.append(f"{hazard}: best {best[0]} {best[1]['accuracy_pct']:.1f}%")
+        for hazard_key, meta in result.items():
+            real = {k: v for k, v in meta["metrics"].items() if k != compare.BASELINE_NAME}
+            best = max(real.items(), key=lambda kv: kv[1]["skill"])
+            parts.append(f"{hazard_key}: best {best[0]} skill {best[1]['skill']:+.2f}")
         return "; ".join(parts)
     if name == "sentiment":
         scores = ", ".join(f"{slug}={value:.2f}" for slug, value in result["scores"].items())
         return f"{result['n_disasters']} disasters scored ({scores})"
+    if "skill" in result:
+        extra = f", cv_r2={result['cv_r2_mean']:.2f}" if "cv_r2_mean" in result else ""
+        return f"r2={result['r2']:.3f}, {_skill(result)}{extra}"
     if "r2" in result:
         extra = f", rmse={result['rmse']:.3f}" if "rmse" in result else ""
         return f"r2={result['r2']:.3f}{extra}"

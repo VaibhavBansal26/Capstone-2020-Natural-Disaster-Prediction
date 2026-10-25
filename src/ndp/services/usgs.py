@@ -29,6 +29,29 @@ class QuakeEvent:
 _cache: tuple[float, list[QuakeEvent]] | None = None
 
 
+def collapse_duplicates(events: list[QuakeEvent]) -> list[QuakeEvent]:
+    """The feed can list one earthquake several times (different contributing networks, e.g. the
+    Pacific Tsunami Warning Center). Treat events within 90 seconds, 50 km and 0.5 magnitude of
+    each other as the same quake and keep the preferred one: a core-network id ("us...") first,
+    then the strongest. Without this a watcher would alert twice for one earthquake."""
+    from ndp.ml.hazard import haversine_km
+
+    def preference(e: QuakeEvent) -> tuple[int, float]:
+        return (0 if e.id.startswith("us") else 1, -e.magnitude)
+
+    kept: list[QuakeEvent] = []
+    for e in sorted(events, key=preference):
+        duplicate = any(
+            abs((e.time - k.time).total_seconds()) <= 90
+            and abs(e.magnitude - k.magnitude) <= 0.5
+            and float(haversine_km(e.lat, e.lon, k.lat, k.lon)) <= 50
+            for k in kept
+        )
+        if not duplicate:
+            kept.append(e)
+    return kept
+
+
 def recent_events(limit: int = 8) -> list[QuakeEvent]:
     """Strongest events of the past week (magnitude 4.5 and up), strongest first."""
     global _cache
@@ -58,6 +81,7 @@ def recent_events(limit: int = 8) -> list[QuakeEvent]:
                 )
         except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
             raise ServiceError(f"The USGS feed is unavailable right now ({exc}).") from exc
+        events = collapse_duplicates(events)
         events.sort(key=lambda e: e.magnitude, reverse=True)
         _cache = (now, events)
     return _cache[1][:limit]

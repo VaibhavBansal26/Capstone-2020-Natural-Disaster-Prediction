@@ -1,0 +1,67 @@
+{% from "partials/_form_bits.html" import badge %}
+{% set w = watcher %}
+{% set interval_text = (w.interval_s // 60 ~ ' minutes') if w.interval_s % 60 == 0 and w.interval_s >= 120 else (w.interval_s ~ ' seconds') %}
+{% if not w.enabled %}
+  {% set state_text = 'off' %}
+{% elif w.running %}
+  {% set state_text = 'on' %}
+{% else %}
+  {% set state_text = 'enabled but not running' %}
+{% endif %}
+<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+     data-speak="The real event alert watcher is {{ state_text }}{% if w.enabled %}, in {{ 'dry run mode, so nothing is actually sent' if w.dry_run else 'live mode' }}. It checks for earthquakes of magnitude {{ '%.1f'|format(w.min_magnitude) }} or more every {{ interval_text }}. {{ w.handled|length }} event{{ '' if w.handled|length == 1 else 's' }} handled so far{% endif %}.">
+  <p class="max-w-3xl text-sm text-slate-600">When enabled, the server checks the USGS earthquake feed on a schedule. When a new, real earthquake at or above the threshold appears, it composes an alert (with hospitals and police stations found near the epicentre) and sends it to the contacts configured on the server by email and/or SMS. The first check after a fresh start only records the quakes already in the feed, so enabling it never sends a burst of old alerts. USGS data can lag by a few minutes, and the message says it is not an official warning.</p>
+
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    {% if not w.enabled %}{{ badge('Off', 'muted') }}
+    {% elif w.running %}{{ badge('On, watching', 'ok') }}
+    {% else %}{{ badge('Enabled, not running', 'danger') }}{% endif %}
+    {% if w.enabled %}
+      {% if w.dry_run %}{{ badge('Dry run: nothing is sent', 'warn') }}{% else %}{{ badge('Live: alerts are sent', 'danger') }}{% endif %}
+    {% endif %}
+    {{ badge('Magnitude ' ~ ('%.1f'|format(w.min_magnitude)) ~ ' or more', 'info') }}
+    {{ badge('Every ' ~ interval_text, 'info') }}
+  </div>
+
+  <dl class="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+    <div class="min-w-0">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Last check</dt>
+      <dd class="font-medium text-slate-800">{{ w.last_poll.strftime('%Y-%m-%d %H:%M:%S') ~ ' UTC' if w.last_poll else ('not yet' if w.running else 'never in this session') }}</dd>
+    </div>
+    <div class="min-w-0">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Alert contacts</dt>
+      <dd class="font-medium text-slate-800">email {{ 'configured' if settings.email_configured else 'not configured' }}, SMS {{ 'configured' if settings.sms_configured else 'not configured' }}</dd>
+    </div>
+    <div class="min-w-0">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Last error</dt>
+      <dd class="break-words font-medium {{ 'text-rose-700' if w.last_error else 'text-slate-800' }}">{{ w.last_error or 'none' }}</dd>
+    </div>
+  </dl>
+
+  {% if not w.enabled %}
+  <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+    <p class="font-medium text-slate-900">How to turn it on</p>
+    <p class="mt-1">It is off by default. Add these to the <code class="rounded bg-white px-1 py-0.5 text-xs ring-1 ring-slate-200">.env</code> file (or the environment) and restart the server:</p>
+    <pre class="mt-2 overflow-x-auto rounded-md bg-white p-3 text-xs leading-relaxed ring-1 ring-slate-200">NDP_WATCH_QUAKES=true
+NDP_WATCH_MIN_MAGNITUDE=6.0
+NDP_ALERTS_DRY_RUN=true   # try it first: records what would be sent, sends nothing
+NDP_ALERT_TO_EMAIL=you@example.com
+NDP_SMTP_USER=...  NDP_SMTP_PASSWORD=...</pre>
+    <p class="mt-2 text-xs text-slate-500">Set <code>NDP_ALERTS_DRY_RUN=false</code> only when you are ready for real messages.</p>
+  </div>
+  {% endif %}
+
+  <h3 class="mt-5 text-sm font-semibold text-slate-900">Last handled events</h3>
+  {% if w.handled %}
+  <ul class="mt-2 divide-y divide-slate-100 text-sm">
+    {% for h in w.handled %}
+    <li class="py-2.5" data-speak="Magnitude {{ '%.1f'|format(h.magnitude) }}, {{ h.place }}. {{ h.outcome }}.">
+      <p class="break-words"><span class="font-medium text-slate-900">M {{ '%.1f'|format(h.magnitude) }}</span> <span class="text-slate-700">{{ h.place }}</span></p>
+      <p class="break-words text-xs text-slate-500">{{ h.at.strftime('%Y-%m-%d %H:%M') }} UTC · {{ h.outcome }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mt-2 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">Nothing handled yet. Events below the magnitude threshold are never listed here.</p>
+  {% endif %}
+</div>

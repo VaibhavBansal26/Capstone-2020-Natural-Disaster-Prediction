@@ -1,4 +1,10 @@
-"""Hurricane maximum sustained wind regression (NOAA HURDAT2 Atlantic + Pacific)."""
+"""Hurricane maximum sustained wind regression (NOAA HURDAT2 Atlantic + Pacific).
+
+Features are position and time of year only (``Latitude``, ``Longitude``, day of year and
+``abs(Latitude)``); the year is deliberately not a feature. The split is chronological:
+trained on observations before 2005, evaluated on 2005 onwards. A gradient-boosted model of
+position alone cannot know how strong a particular storm is, so expect modest skill.
+"""
 
 from __future__ import annotations
 
@@ -7,23 +13,20 @@ from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import HistGradientBoostingRegressor
 
 from ndp.ml import plots, registry
 from ndp.ml.features import (
-    date_to_int,
+    honest_metadata,
     load_csv,
     parse_hurdat_coord,
-    regression_metrics,
-    single_row,
 )
 
 MODEL = "hurricane_wind"
 CSVS = ("hurricane-atlantic.csv", "hurricane-pacific.csv")
-FEATURES = ["Date", "Latitude", "Longitude"]
+FEATURES = ["Date", "Latitude", "Longitude"]  # raw columns (also used by ``compare``)
+MODEL_FEATURES = ["lat", "lon", "day_of_year", "abs_lat"]
+SPLIT_YEAR = 2005
 TARGET = "Maximum Wind"
 HURRICANE_KT = 64
 
@@ -66,8 +69,22 @@ def load_frame() -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def _build_pipeline() -> Pipeline:
-    return make_pipeline(StandardScaler(), LinearRegression())
+def model_frame(lat, lon, day_of_year) -> pd.DataFrame:
+    """The model's feature matrix; accepts array-likes."""
+    frame = pd.DataFrame({"lat": lat, "lon": lon, "day_of_year": day_of_year})
+    frame["abs_lat"] = frame["lat"].abs()
+    return frame[MODEL_FEATURES].astype(float)
+
+
+def _day_of_year(dates: pd.Series) -> pd.Series:
+    when = pd.to_datetime(dates.astype(str), format="%Y%m%d", errors="coerce")
+    return when.dt.day_of_year
+
+
+def _build_model() -> HistGradientBoostingRegressor:
+    return HistGradientBoostingRegressor(
+        max_iter=200, learning_rate=0.05, max_leaf_nodes=15, min_samples_leaf=40, random_state=0
+    )
 
 
 def _plots(df: pd.DataFrame, y_test: pd.Series, y_pred) -> None:
@@ -75,7 +92,7 @@ def _plots(df: pd.DataFrame, y_test: pd.Series, y_pred) -> None:
     plt.scatter(y_pred, y_test, s=4, alpha=0.3)
     lo, hi = float(min(y_test.min(), y_pred.min())), float(max(y_test.max(), y_pred.max()))
     plt.plot([lo, hi], [lo, hi], color="#dc2626")
-    plt.title("Predicted vs actual maximum wind (test set)")
+    plt.title("Predicted vs actual maximum wind (2005 onwards, held out)")
     plt.xlabel("Predicted (kt)")
     plt.ylabel("Actual (kt)")
     plots.save_current("hurricane", "h1.png")
@@ -101,20 +118,30 @@ def _plots(df: pd.DataFrame, y_test: pd.Series, y_pred) -> None:
 
 def train() -> dict:
     df = load_frame()
-    X = df[FEATURES]
+    df = df.assign(day_of_year=_day_of_year(df["Date"])).dropna(subset=["day_of_year"])
+    df = df.sort_values("Date", kind="stable").reset_index(drop=True)
+    year = df["Date"] // 10000
+    train_mask = (year < SPLIT_YEAR).to_numpy()
+    X = model_frame(df["Latitude"], df["Longitude"], df["day_of_year"])
     y = df[TARGET]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=4)
-    model = _build_pipeline()
-    model.fit(X_train, y_train)
+    X_train, X_test = X[train_mask], X[~train_mask]
+    y_train, y_test = y[train_mask], y[~train_mask]
+    model = _build_model().fit(X_train, y_train)
     y_pred = model.predict(X_test)
-    metrics = regression_metrics(y_test, y_pred)
+    split = (
+        f"chronological: trained on {int(year.min())} to {SPLIT_YEAR - 1}, "
+        f"tested on {SPLIT_YEAR} to {int(year.max())}"
+    )
+    metrics = honest_metadata(y_train, y_test, y_pred, split)
     _plots(df, y_test, y_pred)
     metadata = {
-        "r2": metrics["r2"],
-        "rmse": metrics["rmse"],
+        **metrics,
         "n_rows": int(len(df)),
-        "features": FEATURES,
+        "n_train": int(train_mask.sum()),
+        "n_test": int((~train_mask).sum()),
+        "features": MODEL_FEATURES,
         "target": TARGET,
+        "split_year": SPLIT_YEAR,
     }
     registry.save(MODEL, model, metadata)
     return metadata
@@ -122,7 +149,7 @@ def train() -> dict:
 
 def predict(on: dt.date, lat: float, lon: float) -> HurricanePrediction:
     model = registry.load(MODEL)
-    row = single_row(FEATURES, [date_to_int(on), lat, lon])
+    row = model_frame([lat], [lon], [on.timetuple().tm_yday])
     wind = float(model.predict(row)[0])
     return HurricanePrediction(
         max_wind_kt=wind, category=category_for(wind), is_hurricane=wind >= HURRICANE_KT

@@ -18,7 +18,7 @@ from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from ndp.ml import plots, registry
-from ndp.ml.features import load_csv, single_row
+from ndp.ml.features import honest_metadata, load_csv, regression_metrics, single_row
 
 MODEL = "covid_india_cases"
 EPOCH = dt.date(2020, 1, 22)
@@ -63,10 +63,23 @@ def train() -> dict:
     days = np.array([(d.date() - EPOCH).days for d in series.index], dtype=float)
     X = pd.DataFrame({"day_index": days})
     y = series.to_numpy()
+    # Honest check first: fit on the first 80% of days, score on the most recent 20%.
+    cut = int(len(y) * 0.8)
+    holdout_model = _build_pipeline().fit(X.iloc[:cut], y[:cut])
+    holdout_pred = holdout_model.predict(X.iloc[cut:])
+    split = (
+        f"chronological, last 20% of days held out ({series.index[cut].date()} to "
+        f"{series.index[-1].date()}); the deployed model is then refit on all days"
+    )
+    honest = honest_metadata(y[:cut], y[cut:], holdout_pred, split)
+    persistence = regression_metrics(y[cut:], np.full(len(y) - cut, y[cut - 1]))
+    trend = np.polyfit(days[:cut], y[:cut], 1)
+    linear = regression_metrics(y[cut:], np.polyval(trend, days[cut:]))
+
     model = _build_pipeline()
     model.fit(X, y)
     fitted = model.predict(X)
-    r2 = float(r2_score(y, fitted))
+    r2_in_sample = float(r2_score(y, fitted))
     last_date = series.index[-1].date()
 
     plt.figure(figsize=(8, 4))
@@ -91,7 +104,15 @@ def train() -> dict:
     metadata = {
         "last_date": last_date.isoformat(),
         "n_days": int(len(series)),
-        "r2": r2,
+        **honest,
+        "r2_in_sample": r2_in_sample,
+        "last_value_rmse": persistence["rmse"],
+        "linear_trend_rmse": linear["rmse"],
+        "note": (
+            "r2 and rmse are on the held-out final 20% of days; r2_in_sample is a curve fit. "
+            "Cumulative counts trend upward, so the mean baseline is easy to beat; compare "
+            "with last_value_rmse and linear_trend_rmse. Far-ahead forecasts are extrapolation."
+        ),
         "n_rows": int(len(series)),
         "features": FEATURES,
         "target": TARGET,

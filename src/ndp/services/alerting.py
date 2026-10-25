@@ -1,9 +1,9 @@
 """Compose and dispatch emergency alerts.
 
 Used by the manual flow (alerts page, earthquake result button) and the optional automatic
-flow (NDP_AUTO_ALERT). Messages go only to the contacts configured on the server; the
-facilities found near the epicentre are listed *in* the message so the recipient can act on
-them. Nothing here contacts hospitals or police stations directly.
+flow (the real-event watcher, NDP_WATCH_QUAKES). Messages go only to the contacts configured on
+the server; the facilities found near the epicentre are listed *in* the message so the
+recipient can act on them. Nothing here contacts hospitals or police stations directly.
 """
 
 from __future__ import annotations
@@ -81,7 +81,10 @@ def build_generic_message(place_name: str, lat: float, lon: float, places: list)
     return "\n".join([head, *_facility_lines(places), "Please follow official guidance."])
 
 
-def dispatch(place_name: str, body: str, phone: str | None = None) -> DispatchResult:
+def dispatch(
+    place_name: str, body: str, phone: str | None = None, sms_body: str | None = None
+) -> DispatchResult:
+    """`sms_body` lets callers send a shorter text over SMS than the full email body."""
     s = get_settings()
     result = DispatchResult(dry_run=s.alerts_dry_run)
     phone = (phone or "").strip() or None
@@ -103,7 +106,7 @@ def dispatch(place_name: str, body: str, phone: str | None = None) -> DispatchRe
             result.would_send.append(f"sms to {phone or s.alert_to_number}")
         else:
             try:
-                result.channels.append(notify.send_sms(body[:1500], phone))
+                result.channels.append(notify.send_sms((sms_body or body)[:1500], phone))
             except ServiceError as exc:
                 result.skipped.append(str(exc))
     else:

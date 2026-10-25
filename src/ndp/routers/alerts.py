@@ -1,15 +1,29 @@
 from __future__ import annotations
 
+import inspect
 from dataclasses import asdict
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_float, parse_text
-from ndp.services import ServiceError, alerting, geo
+from ndp.services import ServiceError, alerting, geo, llm, translate
 from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/alerts")
+
+# notify.send_sms is given body[:1500]; keep the SMS inside that limit on purpose.
+SMS_LIMIT = 1500
+SMS_TRANSLATIONS_NOTE = "[Translations are in the email version.]"
+MAX_TRANSLATION_CHARS = 4000
+
+
+def _translation_ui() -> dict:
+    """Context for the language picker: hidden (replaced by a note) without a Claude key."""
+    return {
+        "llm_enabled": llm.is_configured(),
+        "languages": [{"code": c, "name": n} for c, n in translate.LANGUAGES.items()],
+    }
 
 
 def _page_context() -> dict:
@@ -18,9 +32,10 @@ def _page_context() -> dict:
         "email_configured": s.email_configured,
         "sms_configured": s.sms_configured,
         "dry_run": s.alerts_dry_run,
-        "auto_alert": s.auto_alert,
+        "watcher_on": s.watch_quakes,
         "meta": None,
         "trained": True,
+        **_translation_ui(),
     }
 
 
@@ -48,6 +63,7 @@ def _results_response(request: Request, inputs: dict, found, radius: float, make
         radius_km=radius,
         warning=warning,
         message=make_message(found, places),
+        **_translation_ui(),
     )
 
 
@@ -120,14 +136,98 @@ def alerts_nearby(
         return _error_response(request, inputs, exc)
 
 
+_LANGUAGES_FIELD = Form(None)
+
+
+@router.post("/translate", name="alerts_translate")
+def alerts_translate(
+    request: Request, message: str = Form(""), languages: list[str] | None = _LANGUAGES_FIELD
+):
+    """Machine-translate the message into the ticked languages and return one editable textarea
+    per language (``translation_<code>``). The partial is swapped *inside* the send form, so a
+    person reads and edits every translation before pressing Send. Always the bare partial: this
+    control exists only with HTMX."""
+    if not llm.is_configured():
+        return render(
+            request,
+            "alerts/_translations.html",
+            error="Translation needs Claude, which is not configured on this server.",
+        )
+    try:
+        text = parse_text(message, "Message", 1200)
+        languages = languages or []
+        unknown = [c for c in languages if c not in translate.LANGUAGES]
+        if unknown:
+            raise FormError("Unsupported language: " + ", ".join(unknown))
+        picked = [c for c in translate.LANGUAGES if c in languages]
+        if not picked:
+            raise FormError("Choose at least one language.")
+        results = translate.translate_many(text, picked)
+    except (FormError, ServiceError) as exc:
+        return render(request, "alerts/_translations.html", error=str(exc))
+    return render(request, "alerts/_translations.html", translations=list(results.values()))
+
+
+async def _translation_fields(request: Request) -> dict[str, str]:
+    """Every non-empty ``translation_<code>`` field of the send form, in the picker's order.
+    Read from the (cached) form body so the endpoint itself stays a plain ``def``."""
+    form = await request.form()
+    found: dict[str, str] = {}
+    for code in translate.LANGUAGES:
+        value = form.get(f"translation_{code}")
+        if isinstance(value, str) and value.strip():
+            found[code] = value.strip()
+    return found
+
+
+_TRANSLATIONS = Depends(_translation_fields)
+
+
+def compose_bodies(text: str, translations: dict[str, str]) -> tuple[str, str, bool]:
+    """``(email_body, sms_body, sms_is_english_only)``.
+
+    The English text always comes first; each translation follows under a language heading.
+    SMS is limited to 1500 characters (and Indic/Arabic/CJK text costs many SMS segments), so:
+    if the whole message fits, SMS carries all of it; if not, SMS carries only the English
+    (translation-free) text plus a note that translations are in the email."""
+    if not translations:
+        return text, text, False
+    parts = [text]
+    for code, body in translations.items():
+        parts.append(f"=== {translate.LANGUAGES[code]} ===\n{body}")
+    email_body = "\n\n".join(parts)
+    if len(email_body) <= SMS_LIMIT:
+        return email_body, email_body, False
+    sms_body = f"{text[: SMS_LIMIT - len(SMS_TRANSLATIONS_NOTE) - 1]}\n{SMS_TRANSLATIONS_NOTE}"
+    return email_body, sms_body, True
+
+
+def _dispatch(place_name: str, email_body: str, sms_body: str, phone: str):
+    """Send. A separate SMS text needs ``alerting.dispatch(..., sms_body=)``; until that exists
+    the combined body goes to both channels (SMS then shows its first 1500 characters)."""
+    if sms_body != email_body and "sms_body" in inspect.signature(alerting.dispatch).parameters:
+        return alerting.dispatch(place_name, email_body, phone, sms_body=sms_body), True
+    return alerting.dispatch(place_name, email_body, phone), sms_body == email_body
+
+
 @router.post("/send", name="alerts_send")
 def alerts_send(
-    request: Request, place: str = Form(""), message: str = Form(""), phone: str = Form("")
+    request: Request,
+    place: str = Form(""),
+    message: str = Form(""),
+    phone: str = Form(""),
+    translations: dict[str, str] = _TRANSLATIONS,
 ):
     inputs = {"place": place, "message": message, "phone": phone}
     try:
         place_name = parse_text(place, "Place", 300)
         text = parse_text(message, "Message", 1200)
+        for code, body in translations.items():
+            if len(body) > MAX_TRANSLATION_CHARS:
+                raise FormError(
+                    f"The {translate.LANGUAGES[code]} translation is too long "
+                    f"(max {MAX_TRANSLATION_CHARS} characters)."
+                )
     except FormError as exc:
         return page_or_partial(
             request,
@@ -135,19 +235,33 @@ def alerts_send(
             "alerts/_sent.html",
             _page_context,
             inputs=inputs,
+            sent=True,
             error=str(exc),
         )
-    outcome = alerting.dispatch(place_name, text, phone)
+    email_body, sms_body, sms_english_only = compose_bodies(text, translations)
+    outcome, sms_separate = _dispatch(place_name, email_body, sms_body, phone)
     return page_or_partial(
         request,
         "alerts/page.html",
         "alerts/_sent.html",
         _page_context,
         inputs=inputs,
+        sent=True,
         channels=outcome.channels,
         skipped=outcome.skipped,
         would_send=outcome.would_send,
         dry_run=outcome.dry_run,
         place=place_name,
         message=text,
+        included_languages=[
+            {
+                "code": c,
+                "name": translate.LANGUAGES[c],
+                "text": t,
+                "rtl": c in translate.RTL_LANGUAGES,
+            }
+            for c, t in translations.items()
+        ],
+        sms_english_only=sms_english_only and sms_separate,
+        sms_cut=sms_english_only and not sms_separate,
     )

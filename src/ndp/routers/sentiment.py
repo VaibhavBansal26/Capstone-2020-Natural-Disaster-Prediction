@@ -5,9 +5,34 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from ndp.config import get_settings
 from ndp.forms import FormError, parse_text
 from ndp.ml import registry, sentiment
-from ndp.web import render
+from ndp.services import ServiceError, llm, triage
+from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/sentiment")
+
+# One click fills the triage box. The first mirrors the 2015 Chennai flood threads in the data.
+TRIAGE_EXAMPLES = [
+    {
+        "label": "Chennai flood, rescue",
+        "text": "Water is rising in Velachery, we are on the first floor with two kids and an "
+        "elderly parent, please send a boat",
+    },
+    {
+        "label": "Hindi-English mix, medicine",
+        "text": "Bhai Kerala mein hamare ghar ke paas koi insulin bhej sakta hai? Papa ko diabetes "
+        "hai aur do din se dawai khatam hai, road band hai",
+    },
+    {
+        "label": "Spanish, missing person",
+        "text": "Busco a mi hermano Luis, estaba en Lorca cuando empezo el terremoto y no contesta "
+        "el telefono desde ayer",
+    },
+    {
+        "label": "Relief camp info",
+        "text": "Is the relief camp at the school in Kottayam open tonight? Which roads are "
+        "passable from Ernakulam?",
+    },
+]
 
 
 def _rows() -> list[dict]:
@@ -38,6 +63,10 @@ def _page_context() -> dict:
         "plot": "generated/sentiment/impact_vs_sentiment.png" if plot_path.exists() else None,
         "meta": registry.metadata(sentiment.SCORES),
         "trained": registry.is_trained(sentiment.SCORES),
+        "llm_enabled": llm.is_configured(),
+        "triage_examples": TRIAGE_EXAMPLES,
+        "triage_max_chars": triage.MAX_POST_CHARS,
+        "sample_datasets": [{"slug": d.slug, "name": d.name} for d in sentiment.DISASTERS],
     }
 
 
@@ -60,6 +89,56 @@ def sentiment_score_text(request: Request, text: str = Form("")):
     score = sentiment.score_text(clean)
     label = "positive" if score > 0 else "negative" if score < 0 else "neutral"
     return render(request, "sentiment/_text_score.html", text=clean, score=score, label=label)
+
+
+_NOT_CONFIGURED = "not_configured"
+
+
+@router.post("/triage", name="sentiment_triage")
+def sentiment_triage(request: Request, text: str = Form("")):
+    """AI triage suggestion for one pasted post. Needs Claude; a person must verify the result."""
+
+    def respond(**result):
+        return page_or_partial(
+            request, "sentiment/page.html", "sentiment/_triage.html", _page_context, **result
+        )
+
+    if not llm.is_configured():
+        return respond(triage_state=_NOT_CONFIGURED, triage_text=text)
+    try:
+        clean = parse_text(text, "Post", triage.MAX_POST_CHARS)
+        result = triage.triage_post(clean)
+    except (FormError, ServiceError) as exc:
+        return respond(triage_error=str(exc), triage_text=text)
+    return respond(triage=result, triage_text=clean)
+
+
+@router.post("/triage/sample", name="sentiment_triage_sample")
+def sentiment_triage_sample(request: Request, dataset: str = Form("")):
+    """Triage up to 5 random posts from one disaster's dataset; each row succeeds or fails alone."""
+
+    def respond(**result):
+        return page_or_partial(
+            request, "sentiment/page.html", "sentiment/_triage_sample.html", _page_context, **result
+        )
+
+    if not llm.is_configured():
+        return respond(sample_state=_NOT_CONFIGURED)
+    slug = dataset.strip() or sentiment.DISASTERS[0].slug
+    try:
+        pairs = triage.triage_sample(slug, triage.MAX_SAMPLE)
+    except ServiceError as exc:
+        return respond(sample_error=str(exc), sample_slug=slug)
+    rows = [
+        {
+            "text": post,
+            "triage": None if isinstance(outcome, triage.TriageFailure) else outcome,
+            "error": outcome.message if isinstance(outcome, triage.TriageFailure) else None,
+        }
+        for post, outcome in pairs
+    ]
+    name = next((d.name for d in sentiment.DISASTERS if d.slug == slug), slug)
+    return respond(sample_rows=rows, sample_slug=slug, sample_name=name)
 
 
 @router.get("/{slug}", name="sentiment_score")

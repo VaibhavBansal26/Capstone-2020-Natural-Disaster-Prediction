@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -26,13 +29,28 @@ def _paths(name: str) -> tuple[Path, Path]:
     return models_dir / f"{name}.joblib", models_dir / f"{name}.json"
 
 
+def _atomic_write(target: Path, write: Callable[[Any], None]) -> None:
+    fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            write(handle)
+        os.chmod(tmp_name, 0o644)  # mkstemp creates 0600; match a normal file write
+        os.replace(tmp_name, target)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+
+
 def save(name: str, artifact: Any, metadata: dict[str, Any] | None = None) -> Path:
     model_path, meta_path = _paths(name)
     model_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(artifact, model_path)
     meta = {"name": name, "trained_at": datetime.now(UTC).isoformat(timespec="seconds")}
     meta.update(metadata or {})
-    meta_path.write_text(json.dumps(meta, indent=2, default=str))
+    # Write next to the target and rename, so a reader never sees a half-written file.
+    _atomic_write(model_path, lambda handle: joblib.dump(artifact, handle))
+    _atomic_write(
+        meta_path, lambda handle: handle.write(json.dumps(meta, indent=2, default=str).encode())
+    )
     load.cache_clear()
     return model_path
 

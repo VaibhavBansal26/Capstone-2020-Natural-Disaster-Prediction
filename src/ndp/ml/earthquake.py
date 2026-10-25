@@ -1,4 +1,11 @@
-"""Earthquake magnitude regression (USGS significant earthquakes 1965-2016)."""
+"""Earthquake magnitude regression (USGS significant earthquakes 1965-2016).
+
+Illustrative only, not used by the earthquake page (that page uses :mod:`ndp.ml.hazard`).
+It is kept because the model comparison and the tests use it, and because it is a useful
+example of a model with almost no skill: the catalogue only holds M >= 5.5 events, location
+and depth say very little about the size of the next one, and the held-out R^2 is about 0.
+Its metadata records the baseline, the skill and the chronological split so the page can say so.
+"""
 
 from __future__ import annotations
 
@@ -8,13 +15,12 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from ndp.ml import plots, registry
-from ndp.ml.features import earthquake_date_to_epoch, load_csv, regression_metrics, single_row
+from ndp.ml.features import earthquake_date_to_epoch, honest_metadata, load_csv, single_row
 
 MODEL = "earthquake_magnitude"
 STATS = "earthquake_stats"
@@ -46,7 +52,7 @@ def load_frame() -> pd.DataFrame:
     df = df.dropna(subset=["Date", "Latitude", "Longitude", "Depth", TARGET]).copy()
     df["date_epoch"] = df["Date"].map(earthquake_date_to_epoch)
     df["datetime"] = pd.to_datetime(df["date_epoch"], unit="s")
-    return df.reset_index(drop=True)
+    return df.sort_values("date_epoch", kind="stable").reset_index(drop=True)
 
 
 def _build_pipeline() -> Pipeline:
@@ -115,18 +121,23 @@ def train() -> dict:
     df = load_frame()
     X = df[FEATURES]
     y = df[TARGET]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    cut = int(len(df) * 0.8)  # time-ordered data: hold out the most recent 20%
+    X_train, X_test, y_train, y_test = X.iloc[:cut], X.iloc[cut:], y.iloc[:cut], y.iloc[cut:]
     model = _build_pipeline()
     model.fit(X_train, y_train)
-    metrics = regression_metrics(y_test, model.predict(X_test))
+    split = (
+        "chronological, last 20% held out "
+        f"({df['datetime'].iloc[cut]:%Y-%m-%d} to {df['datetime'].iloc[-1]:%Y-%m-%d})"
+    )
+    metrics = honest_metadata(y_train, y_test, model.predict(X_test), split)
 
     stats = _compute_stats(df)
     _plots(df, stats)
 
     metadata = {
-        "r2": metrics["r2"],
-        "rmse": metrics["rmse"],
-        "mae": metrics["mae"],
+        **metrics,
+        "illustrative": True,
+        "note": "Illustrative only: the earthquake page uses earthquake_hazard instead.",
         "n_rows": int(len(df)),
         "features": FEATURES,
         "target": TARGET,

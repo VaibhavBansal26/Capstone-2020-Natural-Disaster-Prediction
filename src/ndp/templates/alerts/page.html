@@ -12,7 +12,7 @@
     {{ badge('Email: ' ~ ('configured' if email_configured else 'not configured'), 'ok' if email_configured else 'muted') }}
     {{ badge('SMS: ' ~ ('configured' if sms_configured else 'not configured'), 'ok' if sms_configured else 'muted') }}
     {% if dry_run %}{{ badge('Dry run', 'warn') }}{% endif %}
-    {{ badge('Automatic alerts: ' ~ ('on' if auto_alert else 'off'), 'warn' if auto_alert else 'muted') }}
+    {{ badge('Real-event watcher: ' ~ ('on' if watcher_on else 'off'), 'warn' if watcher_on else 'muted') }}
   </div>
 </div>
 
@@ -34,7 +34,7 @@
         <li>The place name is geocoded with Nominatim (OpenStreetMap).</li>
         <li>Hospitals and police stations within the radius are fetched from the Overpass API and shown on a map with address and phone where tagged.</li>
         <li>A message prefilled with the nearest facilities can be sent by email (SMTP) and SMS (Twilio) when those are configured, after you confirm.</li>
-        <li>From the earthquake page, a strong estimate (M &ge; 6) offers the same search around the epicentre in one click. Set <code class="font-mono">NDP_AUTO_ALERT=true</code> to send it automatically, as the 2020 version did.</li>
+        <li>The Live page can watch the USGS feed for new strong earthquakes (magnitude 6 or more by default) and send this same alert automatically. It is off by default; set <code class="font-mono">NDP_WATCH_QUAKES=true</code>, and try it with <code class="font-mono">NDP_ALERTS_DRY_RUN=true</code> first.</li>
       </ol>
       {% if not email_configured and not sms_configured %}
       <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">No delivery channel is configured, so sending will report every channel as skipped. Set <code class="font-mono">NDP_SMTP_USER</code>, <code class="font-mono">NDP_SMTP_PASSWORD</code> and <code class="font-mono">NDP_ALERT_TO_EMAIL</code> for email, or the <code class="font-mono">NDP_TWILIO_*</code> variables and <code class="font-mono">NDP_ALERT_TO_NUMBER</code> for SMS.</p>
@@ -43,7 +43,10 @@
   </div>
 
   <div id="result" class="lg:col-span-3" aria-live="polite">
-    {% if place is defined or error is defined %}
+    {% if sent is defined and sent %}
+      {# no-JS fallback of the send form: show the outcome, not the search results #}
+      {% include "alerts/_sent.html" %}
+    {% elif place is defined or error is defined %}
       {% include "alerts/_results.html" %}
     {% else %}
       <div class="flex h-full min-h-[16rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/60 p-6 text-center text-sm text-slate-500">Search a place to see nearby hospitals and police stations here.</div>

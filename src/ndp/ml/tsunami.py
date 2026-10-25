@@ -1,4 +1,11 @@
-"""Tsunami source-magnitude regression (NOAA NCEI historical tsunami database)."""
+"""Tsunami source-magnitude regression (NOAA NCEI historical tsunami database).
+
+Random forest on location and the observed maximum water height. Events are independent
+historical records (not a forecast series), so the hold-out is a shuffled 75/25 split and the
+headline stability figure is 5-fold cross-validation over all rows. Note that the maximum
+height is an *outcome* of the event, so this estimates a source magnitude from an observation,
+it does not predict a tsunami in advance.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +13,11 @@ from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPRegressor
-from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import KFold, cross_val_score, train_test_split
 
 from ndp.ml import plots, registry
-from ndp.ml.features import load_csv, regression_metrics, single_row
+from ndp.ml.features import cv_summary, honest_metadata, load_csv, single_row
 
 MODEL = "tsunami_magnitude"
 CSV = "tsunami.csv"
@@ -39,11 +44,8 @@ def load_frame() -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def _build_pipeline() -> Pipeline:
-    return make_pipeline(
-        StandardScaler(),
-        MLPRegressor(hidden_layer_sizes=(100,), max_iter=1500, random_state=0),
-    )
+def _build_model() -> RandomForestRegressor:
+    return RandomForestRegressor(n_estimators=300, min_samples_leaf=3, n_jobs=-1, random_state=0)
 
 
 def _plots(df: pd.DataFrame) -> None:
@@ -79,18 +81,27 @@ def train() -> dict:
     X = df[FEATURES]
     y = df[TARGET]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
-    model = _build_pipeline()
-    model.fit(X_train, y_train)
-    metrics = regression_metrics(y_test, model.predict(X_test))
+    model = _build_model().fit(X_train, y_train)
+    metrics = honest_metadata(
+        y_train,
+        y_test,
+        model.predict(X_test),
+        "random 75/25 split (independent historical events) plus 5-fold cross-validation",
+    )
+    cv = cross_val_score(
+        _build_model(), X, y, cv=KFold(5, shuffle=True, random_state=0), scoring="r2"
+    )
     _plots(df)
     metadata = {
-        "r2": metrics["r2"],
-        "rmse": metrics["rmse"],
+        **metrics,
+        **cv_summary(cv),
+        "cv_folds": 5,
         "n_rows": int(len(df)),
         "features": FEATURES,
         "target": TARGET,
-        "n_iter": int(model[-1].n_iter_),
+        "note": "MAXIMUM_HEIGHT is an observed outcome: this estimates source magnitude, not risk.",
     }
+    model.n_jobs = 1  # single-row requests: thread start-up would dominate
     registry.save(MODEL, model, metadata)
     return metadata
 

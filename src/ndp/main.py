@@ -46,7 +46,21 @@ def _warm_up() -> None:
         log.warning("could not prepare NLTK corpora at startup: %s", exc)
 
 
+def _configure_logging() -> None:
+    """Plain uvicorn leaves the app's own loggers silent; show ndp.* at INFO on stderr."""
+    import logging
+
+    logger = logging.getLogger("ndp")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+        logger.addHandler(handler)
+        logger.propagate = False
+    logger.setLevel(logging.INFO)
+
+
 def create_app() -> FastAPI:
+    _configure_logging()
     settings = get_settings()
     app = FastAPI(
         title="Natural Disaster Prediction",
@@ -90,6 +104,18 @@ def create_app() -> FastAPI:
         from ndp.routers import covid
 
         app.include_router(covid.router)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        # Voice input needs the microphone on this origin only; nothing else needs sensors.
+        response.headers.setdefault(
+            "Permissions-Policy", "microphone=(self), camera=(), geolocation=(), payment=()"
+        )
+        return response
 
     @app.exception_handler(ModelNotTrained)
     async def _model_not_trained(request: Request, exc: ModelNotTrained):

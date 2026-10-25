@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% from "partials/_form_bits.html" import field, submit, card, badge, fmt %}
-{% block title %}Earthquake prediction{% endblock %}
+{% block title %}Earthquake hazard{% endblock %}
 {% block content %}
 {% set v = inputs if inputs is defined and inputs else {} %}
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Earthquake prediction</h1>
-    <p class="mt-1 max-w-2xl text-sm text-slate-600">Estimate the magnitude an earthquake at a given location, depth and date would have, using a neural network trained on the USGS catalogue of significant earthquakes since 1965. Pick a point on the map or type coordinates.</p>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Earthquake hazard</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">How often have significant earthquakes struck around a place? Pick a point and a radius; the page counts the historical events (USGS significant-earthquakes catalogue, 1965 to 2016) and turns their frequency into the chance of a magnitude 6, 7 or 8 earthquake over 1 and 10 years. This is a long-term rate, not a prediction of when the next earthquake will happen.</p>
   </div>
   <a href="{{ url_for('earthquake_graphs') }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Graphical analysis &rarr;</a>
 </div>
 
 <div class="mt-6 grid gap-6 lg:grid-cols-5">
-  <div class="lg:col-span-2 space-y-6">
-    {% call card('Inputs', 'Latitude and longitude in decimal degrees; depth of the hypocentre in kilometres.') %}
+  <div class="min-w-0 lg:col-span-2 space-y-6">
+    {% call card('Where?', 'Latitude and longitude in decimal degrees; the radius is how far around that point to look.') %}
       <form method="post" action="{{ url_for('earthquake_predict') }}"
             hx-post="{{ url_for('earthquake_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
             class="space-y-4">
@@ -29,13 +29,8 @@
                    class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
           </label>
         </div>
-        {{ field('depth', 'Depth (km)', value=v.get('depth', 10), min=0, max=800, help='Most damaging quakes are shallow (under 70 km).') }}
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">Date</span>
-          <input name="date" type="date" required value="{{ v.get('date', '') }}" data-default-today
-                 class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
-        </label>
-        {{ submit('Estimate magnitude') }}
+        {{ field('radius_km', 'Radius (km)', value=v.get('radius_km', default_radius_km if default_radius_km is defined else 300), min=25, max=2000, help='25 to 2000 km. Smaller radii find fewer events and give noisier rates.') }}
+        {{ submit('Estimate hazard') }}
       </form>
     {% endcall %}
 
@@ -46,7 +41,7 @@
     {% include "partials/_model_card.html" %}
   </div>
 
-  <div class="lg:col-span-3 space-y-6">
+  <div class="min-w-0 lg:col-span-3 space-y-6">
     <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-2 px-2">
         <h2 class="text-base font-semibold text-slate-900">Live USGS feed</h2>
@@ -68,6 +63,8 @@
       </div>
     </section>
 
+    {% include "partials/_plots.html" %}
+
     {% if stats %}
     <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
       <h2 class="text-base font-semibold text-slate-900">Catalogue at a glance</h2>
@@ -82,29 +79,28 @@
 
     <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
       <h2 class="text-base font-semibold text-slate-900">Recent queries</h2>
-      <p class="mt-1 text-sm text-slate-500">The latest estimates made on this server (kept in memory, newest first). Rows at or above magnitude 6 are highlighted.</p>
+      <p class="mt-1 text-sm text-slate-500">The latest hazard look-ups made on this server (kept in memory, newest first). High and very high rows are highlighted.</p>
       {% if recent %}
       <div class="mt-4 -mx-6 sm:mx-0 overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr><th class="px-3 py-2">Latitude</th><th class="px-3 py-2">Longitude</th><th class="px-3 py-2">Depth</th><th class="px-3 py-2">Date</th><th class="px-3 py-2">Magnitude</th><th class="px-3 py-2">Alert</th></tr>
+            <tr><th class="px-3 py-2">Latitude</th><th class="px-3 py-2">Longitude</th><th class="px-3 py-2">Radius</th><th class="px-3 py-2">Level</th><th class="px-3 py-2">P(M ≥ 6, 10 y)</th></tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             {% for r in recent %}
-            <tr class="{{ 'bg-rose-50' if r.alert else '' }}">
+            <tr class="{{ 'bg-rose-50' if r.elevated else '' }}">
               <td class="px-3 py-2 tabular-nums">{{ fmt(r.lat) }}</td>
               <td class="px-3 py-2 tabular-nums">{{ fmt(r.lon) }}</td>
-              <td class="px-3 py-2 tabular-nums">{{ fmt(r.depth) }} km</td>
-              <td class="px-3 py-2">{{ r.date }}</td>
-              <td class="px-3 py-2 font-medium tabular-nums">{{ fmt(r.magnitude) }}</td>
-              <td class="px-3 py-2">{% if r.alert %}{{ badge('Alert', 'danger') }}{% if r.alert_status %}<span class="mt-1 block text-xs text-slate-500">{{ r.alert_status }}</span>{% endif %}{% else %}{{ badge('None', 'ok') }}{% endif %}</td>
+              <td class="px-3 py-2 tabular-nums">{{ fmt(r.radius_km, 0) }} km</td>
+              <td class="px-3 py-2">{{ badge(r.level|capitalize, {'low': 'ok', 'moderate': 'info', 'high': 'warn', 'very high': 'danger'}.get(r.level, 'muted')) }}</td>
+              <td class="px-3 py-2 font-medium tabular-nums">{% if r.prob_10y_m6 is none %}–{% elif r.prob_10y_m6 < 0.001 %}&lt; 0.1 %{% else %}{{ fmt(r.prob_10y_m6 * 100, 1) }} %{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
       {% else %}
-      <p class="mt-4 text-sm text-slate-500">No estimates yet.</p>
+      <p class="mt-4 text-sm text-slate-500">No look-ups yet.</p>
       {% endif %}
     </section>
   </div>

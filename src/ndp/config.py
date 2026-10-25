@@ -52,7 +52,6 @@ class Settings(BaseSettings):
 
     # Alert behaviour. Automatic alerts come from the real-event watcher (watch_quakes) and are
     # opt-in; manual alerts always need a click and a confirm.
-    auto_alert: bool = False
     alerts_dry_run: bool = False
     alert_radius_km: float = 15.0
 

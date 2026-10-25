@@ -4,7 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Natural Disaster Prediction{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <meta name="description" content="{% block description %}Machine-learning estimates for earthquakes, tsunamis, floods, hurricanes and storms, live hazard feeds, nearby-help alerts and an AI assistant. Estimates, not warnings.{% endblock %}">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta property="og:title" content="Natural Disaster Prediction">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%232563eb'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='white' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', path='tailwind.css') }}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
@@ -12,41 +17,47 @@
   <script src="{{ url_for('static', path='app.js') }}" defer></script>
   <script src="{{ url_for('static', path='voice.js') }}" defer></script>
   <script src="{{ url_for('static', path='i18n.js') }}" defer></script>
-  <script>
-    tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eff6ff', 600:'#2563eb', 700:'#1d4ed8', 900:'#1e3a8a' } } } } }
-  </script>
-  <style>
-    .htmx-indicator { opacity: 0; transition: opacity .2s; }
-    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
-    .leaflet-container { font: inherit; }
-  </style>
   {% block head %}{% endblock %}
 </head>
 <body class="min-h-full bg-slate-50 text-slate-800 antialiased flex flex-col">
-  {% set nav = [
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow">Skip to content</a>
+  {% set primary = [
     ('earthquake_page', 'Earthquake'),
-    ('tsunami_page', 'Tsunami'),
     ('flood_page', 'Flood'),
+    ('live_page', 'Live'),
+    ('assistant_page', 'Assistant'),
+    ('alerts_page', 'Alerts'),
+  ] %}
+  {% set more = [
+    ('tsunami_page', 'Tsunami'),
     ('hurricane_page', 'Hurricane'),
     ('storm_page', 'Storm'),
     ('weather_page', 'Weather'),
-    ('alerts_page', 'Alerts'),
     ('sentiment_page', 'Sentiment'),
-    ('compare_page', 'Compare'),
+    ('compare_page', 'Compare models'),
   ] %}
+  {% if settings.enable_covid %}{% set more = more + [('covid_page', 'COVID-19')] %}{% endif %}
+  {% set nav = primary + more %}
+  {% set path = request.url.path %}
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
     <div class="mx-auto max-w-7xl px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-6">
       <a href="{{ url_for('index') }}" class="font-semibold tracking-tight text-brand-900 whitespace-nowrap">
         <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-600 mr-2 align-middle"></span><span class="hidden min-[420px]:inline">Disaster Prediction</span><span class="min-[420px]:hidden">Disasters</span>
       </a>
-      <nav class="hidden lg:flex items-center gap-1 text-sm">
-        {% for endpoint, label in nav %}
-          <a href="{{ url_for(endpoint) }}"
-             class="px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if request.url.path == url_for(endpoint).path else 'text-slate-600' }}">{{ label }}</a>
+      <nav class="hidden lg:flex items-center gap-1 text-sm" aria-label="Main">
+        {% for endpoint, label in primary %}
+          <a href="{{ url_for(endpoint) }}" {% if path == url_for(endpoint).path %}aria-current="page"{% endif %}
+             class="px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if path == url_for(endpoint).path else 'text-slate-600' }}">{{ label }}</a>
         {% endfor %}
-        {% if settings.enable_covid %}
-          <a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600 hover:bg-rose-50">COVID-19</a>
-        {% endif %}
+        <details class="relative" data-menu>
+          <summary class="list-none cursor-pointer px-2.5 py-1.5 rounded-md hover:bg-slate-100 text-slate-600 select-none">More <span aria-hidden="true">&#9662;</span></summary>
+          <div class="absolute left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50">
+            {% for endpoint, label in more %}
+              <a href="{{ url_for(endpoint) }}" {% if path == url_for(endpoint).path %}aria-current="page"{% endif %}
+                 class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if path == url_for(endpoint).path else 'text-slate-700' }}">{{ label }}</a>
+            {% endfor %}
+          </div>
+        </details>
       </nav>
       <div id="ndp-tools" class="ml-auto flex items-center gap-1.5 sm:gap-2">
         <button type="button" id="ndp-voice-toggle" aria-pressed="false" hidden
@@ -64,17 +75,18 @@
       </div>
       <details class="lg:hidden relative">
         <summary class="list-none cursor-pointer px-2 py-1 rounded-md border border-slate-200 text-sm">Menu</summary>
-        <div class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-sm flex flex-col">
+        <div class="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-2 text-sm flex flex-col max-h-[70vh] overflow-y-auto z-50">
+          <a href="{{ url_for('index') }}" class="px-2.5 py-1.5 rounded-md hover:bg-slate-100">Home</a>
           {% for endpoint, label in nav %}
-            <a href="{{ url_for(endpoint) }}" class="px-2.5 py-1.5 rounded-md hover:bg-slate-100">{{ label }}</a>
+            <a href="{{ url_for(endpoint) }}" {% if path == url_for(endpoint).path %}aria-current="page"{% endif %}
+               class="px-2.5 py-1.5 rounded-md hover:bg-slate-100 {{ 'bg-slate-100 font-medium' if path == url_for(endpoint).path else '' }}">{{ label }}</a>
           {% endfor %}
-          {% if settings.enable_covid %}<a href="{{ url_for('covid_page') }}" class="px-2.5 py-1.5 rounded-md text-rose-600">COVID-19</a>{% endif %}
         </div>
       </details>
     </div>
   </header>
 
-  <main class="flex-1 mx-auto w-full max-w-7xl px-4 py-8">
+  <main id="main" class="flex-1 mx-auto w-full max-w-7xl px-4 py-8">
     {% block content %}{% endblock %}
   </main>
 
@@ -84,6 +96,17 @@
       <a class="hover:text-slate-800" href="https://github.com/VaibhavBansal26/Capstone-2020-Natural-Disaster-Prediction">Source on GitHub</a>
     </div>
   </footer>
+  <script>
+    (function () {
+      var menus = function () { return document.querySelectorAll('details[data-menu][open]'); };
+      document.addEventListener('click', function (e) {
+        menus().forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') menus().forEach(function (d) { d.removeAttribute('open'); });
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -30,6 +30,8 @@ alerts = ["twilio>=9.0"]
 ndp-fetch-data = "ndp.data:main"
 ndp-train = "ndp.ml.train:main"
 ndp-serve = "ndp.main:serve"
+ndp-fetch-guidance = "ndp.guidance:main"
+ndp-eval = "ndp.evals:main"
 
 [dependency-groups]
 dev = [

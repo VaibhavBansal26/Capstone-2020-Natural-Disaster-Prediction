@@ -1,0 +1,50 @@
+{% from "partials/_form_bits.html" import badge %}
+{% if error is defined and error %}
+  {% set title = 'Could not load GDACS alerts.' %}
+  {% set retry_endpoint = 'live_gdacs' %}
+  {% set retry_target = '#gdacs' %}
+  {% include "live/_error.html" %}
+{% else %}
+<div id="result-gdacs" class="min-w-0">
+  <div class="flex flex-wrap items-center gap-2 text-sm text-slate-600" data-speak="GDACS lists {{ counts.Red }} red, {{ counts.Orange }} orange and {{ counts.Green }} green alerts from the last 30 days.">
+    {{ badge(counts.Red ~ ' Red', 'danger') }}
+    {{ badge(counts.Orange ~ ' Orange', 'warn') }}
+    {{ badge(counts.Green ~ ' Green', 'ok') }}
+    <span class="text-xs text-slate-500">of the {{ events|length }} most important and most recent</span>
+  </div>
+
+  {% if events %}
+  <script type="application/json" id="gdacs-markers">{{ markers|tojson }}</script>
+  <div id="gdacs-map" class="mt-3 h-72 sm:h-96 w-full rounded-lg bg-slate-100" role="application" aria-label="Map of GDACS disaster alerts"
+       data-ndp-map data-lat="20" data-lon="10" data-zoom="1" data-markers-src="#gdacs-markers"></div>
+  <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+    <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-rose-700 align-middle"></span>Red</span>
+    <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-orange-600 align-middle"></span>Orange</span>
+    <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-green-600 align-middle"></span>Green</span>
+    <span>Click a marker for details.{% if unmapped %} {{ unmapped }} alert{{ 's have' if unmapped != 1 else ' has' }} no map position.{% endif %}</span>
+  </p>
+
+  <ul class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
+    {% for v in events %}
+    {% set e = v.e %}
+    <li class="py-3" data-speak="{{ v.speak }}">
+      <div class="flex flex-wrap items-center gap-2">
+        {{ badge(e.alert_level, v.tone) }}
+        {{ badge(e.kind_name, 'muted') }}
+        <span class="text-xs text-slate-500">{{ v.when }}</span>
+      </div>
+      <p class="mt-1 break-words font-medium text-slate-900">{{ e.name }}</p>
+      <p class="break-words text-sm text-slate-600">{{ e.summary }}</p>
+      <p class="mt-0.5 break-words text-xs text-slate-500">
+        {% if v.country %}{{ v.country }}{% endif %}
+        {% if e.url %}{% if v.country %} · {% endif %}<a class="underline" href="{{ e.url }}" target="_blank" rel="noopener">GDACS report</a>{% endif %}
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mt-3 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">GDACS reported no events in the last 30 days.</p>
+  {% endif %}
+  <p class="mt-2 text-xs text-slate-500">Source: <a class="underline" href="https://www.gdacs.org" rel="noopener">GDACS</a> (UN OCHA and European Commission), cached for ten minutes. Alert levels are GDACS's assessments; details and updates are in each GDACS report.</p>
+</div>
+{% endif %}

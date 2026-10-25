@@ -1,54 +1,35 @@
 from __future__ import annotations
 
-import logging
 from collections import deque
-from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Form, Request
+from fastapi import APIRouter, Form, Request
 
-from ndp.config import get_settings
-from ndp.forms import FormError, parse_date, parse_float
+from ndp.forms import FormError, parse_float
 from ndp.ml import earthquake as eq
-from ndp.ml import registry
-from ndp.services import ServiceError, alerting, geo, usgs
+from ndp.ml import hazard, registry
+from ndp.services import ServiceError, usgs
 from ndp.web import page_or_partial, render
 
 router = APIRouter(prefix="/earthquake")
 USGS_FEED_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson"
+DEFAULT_RADIUS_KM = 300
+RADIUS_MIN_KM = 25
+RADIUS_MAX_KM = 2000
+# Plots written by `hazard.train()`; shown on the page that uses the hazard model.
+HAZARD_PLOTS = [
+    ("Significant earthquakes, 1965 to 2016", "generated/earthquake/hz1_seismicity.png"),
+    (
+        "Magnitude-frequency relation (Gutenberg-Richter)",
+        "generated/earthquake/hz2_gutenberg_richter.png",
+    ),
+]
+# Plots of the legacy catalogue statistics (e1 to e4), kept on the graphical-analysis page.
 PLOTS = [
     ("Magnitude distribution", "generated/earthquake/e1.png"),
     ("Events by month", "generated/earthquake/e2.png"),
     ("Events by year", "generated/earthquake/e3.png"),
     ("Magnitude vs depth", "generated/earthquake/e4.png"),
 ]
-
-log = logging.getLogger("ndp.earthquake")
-
-
-def _auto_alert(entry: dict, lat: float, lon: float, depth: float, on, magnitude: float) -> None:
-    """Background job: look up the place and nearby services, then alert the configured
-    contacts. Mirrors the 2020 behaviour (alert at M >= 6) but is opt-in via NDP_AUTO_ALERT and
-    includes the hospitals and police found around the epicentre in the message."""
-    try:
-        place = geo.reverse_geocode(lat, lon)
-        try:
-            places = geo.nearby_services(lat, lon, get_settings().alert_radius_km)
-        except ServiceError:
-            places = []  # still alert; the facility list is a bonus, not a precondition
-        body = alerting.build_earthquake_message(
-            place.name, lat, lon, magnitude, depth, on.isoformat(), places
-        )
-        outcome = alerting.dispatch(place.name, body)
-        if outcome.channels:
-            entry["alert_status"] = "sent: " + ", ".join(outcome.channels)
-        elif outcome.would_send:
-            entry["alert_status"] = "dry run: " + ", ".join(outcome.would_send)
-        else:
-            entry["alert_status"] = "not sent (no channel configured)"
-    except Exception:  # background task: never let it vanish silently
-        log.exception("automatic earthquake alert failed")
-        entry["alert_status"] = "failed (see server log)"
-
 
 # Replaces the legacy MySQL table that only ever stored the last few queries.
 _recent: deque[dict] = deque(maxlen=8)
@@ -63,18 +44,25 @@ def _stats() -> dict | None:
 
 def _page_context() -> dict:
     return {
-        "meta": registry.metadata(eq.MODEL),
-        "trained": registry.is_trained(eq.MODEL),
+        "meta": registry.metadata(hazard.MODEL),
+        "trained": registry.is_trained(hazard.MODEL),
         "recent": list(_recent),
         "stats": _stats(),
+        "plots": HAZARD_PLOTS,
+        "plots_title": "How the hazard is estimated",
         "usgs_feed_url": USGS_FEED_URL,
-        "today": date.today().isoformat(),
+        "default_radius_km": DEFAULT_RADIUS_KM,
     }
 
 
-def _prefill(lat: str | None, lon: str | None, depth: str | None) -> dict[str, str]:
-    """Valid numeric query parameters become form defaults; anything else is ignored."""
-    limits = {"lat": (lat, -90, 90), "lon": (lon, -180, 180), "depth": (depth, 0, 800)}
+def _prefill(lat: str | None, lon: str | None, radius_km: str | None) -> dict[str, str]:
+    """Valid numeric query parameters become form defaults; anything else is ignored.
+    (`depth` used to be a model input; it is accepted in links but no longer used.)"""
+    limits = {
+        "lat": (lat, -90, 90),
+        "lon": (lon, -180, 180),
+        "radius_km": (radius_km, RADIUS_MIN_KM, RADIUS_MAX_KM),
+    }
     out: dict[str, str] = {}
     for key, (raw, lo, hi) in limits.items():
         try:
@@ -87,10 +75,14 @@ def _prefill(lat: str | None, lon: str | None, depth: str | None) -> dict[str, s
 
 @router.get("", name="earthquake_page")
 def earthquake_page(
-    request: Request, lat: str | None = None, lon: str | None = None, depth: str | None = None
+    request: Request,
+    lat: str | None = None,
+    lon: str | None = None,
+    depth: str | None = None,  # accepted for old links; ignored
+    radius_km: str | None = None,
 ):
     context = _page_context()
-    if prefill := _prefill(lat, lon, depth):
+    if prefill := _prefill(lat, lon, radius_km):
         context["inputs"] = prefill
     return render(request, "earthquake/page.html", **context)
 
@@ -121,19 +113,17 @@ def earthquake_graphs(request: Request):
 @router.post("/predict", name="earthquake_predict")
 def earthquake_predict(
     request: Request,
-    background_tasks: BackgroundTasks,
     lat: str = Form(""),
     lon: str = Form(""),
-    depth: str = Form(""),
-    date_: str = Form("", alias="date"),
+    radius_km: str = Form(str(DEFAULT_RADIUS_KM)),
 ):
-    inputs = {"lat": lat, "lon": lon, "depth": depth, "date": date_}
+    inputs = {"lat": lat, "lon": lon, "radius_km": radius_km}
     try:
         f_lat = parse_float(lat, "Latitude", -90, 90)
         f_lon = parse_float(lon, "Longitude", -180, 180)
-        f_depth = parse_float(depth, "Depth (km)", 0, 800)
-        on = parse_date(date_)
-        result = eq.predict(f_lat, f_lon, f_depth, on)
+        f_radius = parse_float(
+            radius_km or str(DEFAULT_RADIUS_KM), "Radius (km)", RADIUS_MIN_KM, RADIUS_MAX_KM
+        )
     except FormError as exc:
         return page_or_partial(
             request,
@@ -143,26 +133,23 @@ def earthquake_predict(
             inputs=inputs,
             error=str(exc),
         )
-    entry = {
-        "lat": f_lat,
-        "lon": f_lon,
-        "depth": f_depth,
-        "date": on.isoformat(),
-        "magnitude": round(result.magnitude, 2),
-        "alert": result.alert,
-        "alert_status": None,
-    }
-    _recent.appendleft(entry)
-    auto_alert = bool(result.alert and get_settings().auto_alert)
-    if auto_alert:
-        entry["alert_status"] = "queued"
-        background_tasks.add_task(_auto_alert, entry, f_lat, f_lon, f_depth, on, result.magnitude)
+    result = hazard.predict(f_lat, f_lon, f_radius)
+    p10 = (result.prob_10y or {}).get("6.0")
+    _recent.appendleft(
+        {
+            "lat": f_lat,
+            "lon": f_lon,
+            "radius_km": f_radius,
+            "level": result.level,
+            "elevated": result.elevated,
+            "prob_10y_m6": p10,
+        }
+    )
     return page_or_partial(
         request,
         "earthquake/page.html",
         "earthquake/_result.html",
         _page_context,
-        inputs=inputs,
+        inputs={"lat": f_lat, "lon": f_lon, "radius_km": f_radius},
         result=result,
-        auto_alert=auto_alert,
     )

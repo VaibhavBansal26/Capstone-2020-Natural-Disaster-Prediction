@@ -18,6 +18,7 @@ Tests replace ``get_client`` with a fake; nothing here runs without a key.
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
@@ -30,6 +31,30 @@ from ndp.config import get_settings
 from ndp.services import ServiceError
 
 log = logging.getLogger("ndp.llm")
+
+_usage: dict[str, int] = {
+    "requests": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+}
+_usage_lock = threading.Lock()
+
+
+def _record_usage(response: Any) -> None:
+    usage = getattr(response, "usage", None)
+    with _usage_lock:
+        _usage["requests"] += 1
+        for key in tuple(_usage)[1:]:
+            _usage[key] += int(getattr(usage, key, 0) or 0)
+
+
+def usage_totals() -> dict[str, int]:
+    """Cumulative token counters for this process (used by the eval runners to report cost)."""
+    with _usage_lock:
+        return dict(_usage)
+
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # Models that accept `fallbacks: "default"` on the Claude API. Others (e.g. Haiku 5.5) reject it.
@@ -104,10 +129,13 @@ def create_message(**kwargs: Any) -> Any:
     model = kwargs.pop("model", None) or model_name()
     with friendly_errors():
         if model in FALLBACK_MODELS:
-            return client.beta.messages.create(
+            response = client.beta.messages.create(
                 model=model, betas=[FALLBACK_BETA], fallbacks="default", **kwargs
             )
-        return client.messages.create(model=model, **kwargs)
+        else:
+            response = client.messages.create(model=model, **kwargs)
+    _record_usage(response)
+    return response
 
 
 def refused(response: Any) -> bool:
@@ -130,6 +158,7 @@ def parse[T: BaseModel](schema: type[T], system: str, user: str, max_tokens: int
             messages=[{"role": "user", "content": user}],
             output_format=schema,
         )
+    _record_usage(response)
     if refused(response):
         raise ServiceError("Claude declined to process this text.")
     if response.parsed_output is None:

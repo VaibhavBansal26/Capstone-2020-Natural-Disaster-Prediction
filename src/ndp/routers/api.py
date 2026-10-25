@@ -8,17 +8,15 @@ from datetime import date
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from ndp.ml import earthquake as eq
-from ndp.ml import flood, hurricane, storm, tsunami
+from ndp.ml import flood, hazard, hurricane, storm, tsunami
 
 router = APIRouter(prefix="/api/v1", tags=["predict"])
 
 
-class EarthquakeIn(BaseModel):
+class HazardIn(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
-    depth_km: float = Field(ge=0, le=800)
-    date: date
+    radius_km: float = Field(default=300.0, ge=25, le=2000)
 
 
 class TsunamiIn(BaseModel):
@@ -27,8 +25,15 @@ class TsunamiIn(BaseModel):
     max_height_m: float = Field(ge=0, le=600)
 
 
-class FloodIn(BaseModel):
-    cumulative_rainfall_mm: float = Field(ge=0, le=5000)
+class FloodForecastIn(BaseModel):
+    """Hoppers Crossing gauge (Werribee River, Melbourne) only."""
+
+    level_now_m: float = Field(ge=0, le=15)
+    level_1h_ago_m: float = Field(ge=0, le=15)
+    level_3h_ago_m: float = Field(ge=0, le=15)
+    rain_3h_mm: float = Field(ge=0, le=500)
+    rain_6h_mm: float = Field(ge=0, le=500)
+    rain_24h_mm: float = Field(ge=0, le=500)
 
 
 class HurricaneIn(BaseModel):
@@ -45,9 +50,10 @@ class StormIn(BaseModel):
     wind_speed: float = Field(ge=0)
 
 
-@router.post("/earthquake/predict", name="api_earthquake")
-def api_earthquake(body: EarthquakeIn) -> dict:
-    return asdict(eq.predict(body.lat, body.lon, body.depth_km, body.date))
+@router.post("/earthquake/hazard", name="api_earthquake_hazard")
+def api_earthquake_hazard(body: HazardIn) -> dict:
+    """Historical seismic hazard around a point (a rate, not a prediction of when)."""
+    return asdict(hazard.predict(body.lat, body.lon, body.radius_km))
 
 
 @router.post("/tsunami/predict", name="api_tsunami")
@@ -55,9 +61,19 @@ def api_tsunami(body: TsunamiIn) -> dict:
     return asdict(tsunami.predict(body.lat, body.lon, body.max_height_m))
 
 
-@router.post("/flood/predict", name="api_flood")
-def api_flood(body: FloodIn) -> dict:
-    return asdict(flood.predict(body.cumulative_rainfall_mm))
+@router.post("/flood/forecast", name="api_flood_forecast")
+def api_flood_forecast(body: FloodForecastIn) -> dict:
+    """1, 3 and 6 hour river-level forecast for the Hoppers Crossing gauge only."""
+    return asdict(
+        flood.predict(
+            body.level_now_m,
+            body.level_1h_ago_m,
+            body.level_3h_ago_m,
+            body.rain_3h_mm,
+            body.rain_6h_mm,
+            body.rain_24h_mm,
+        )
+    )
 
 
 @router.post("/hurricane/predict", name="api_hurricane")

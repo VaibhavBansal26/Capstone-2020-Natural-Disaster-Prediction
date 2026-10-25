@@ -370,6 +370,12 @@
     { id: "city", phrases: ["city", "town"] },
     { id: "place", phrases: ["place", "location", "address"] },
     { id: "date", phrases: ["date"] },
+    { id: "level-now", phrases: ["level now", "current level", "river level", "level"] },
+    { id: "level-1h", phrases: ["level 1 hour ago", "level one hour ago", "level 1h ago", "level an hour ago"] },
+    { id: "level-3h", phrases: ["level 3 hours ago", "level three hours ago", "level 3h ago"] },
+    { id: "rain-3h", phrases: ["rain last 3 hours", "rain last three hours", "rain 3 hours", "rain three hours", "rain 3h"] },
+    { id: "rain-6h", phrases: ["rain last 6 hours", "rain last six hours", "rain 6 hours", "rain six hours", "rain 6h"] },
+    { id: "rain-24h", phrases: ["rain last 24 hours", "rain last twenty four hours", "rain 24 hours", "rain twenty four hours", "rain 24h", "rain a day"] },
     { id: "message", phrases: ["message", "text"] },
     { id: "phone", phrases: ["phone", "phone number", "mobile"] }
   ];

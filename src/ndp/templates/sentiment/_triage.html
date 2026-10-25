@@ -1,0 +1,15 @@
+{% from "sentiment/_triage_bits.html" import triage_body, ai_note, not_configured, spoken %}
+{% if triage_state is defined and triage_state == 'not_configured' %}
+  {{ not_configured() }}
+{% elif triage_error is defined and triage_error %}
+  <div role="alert" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+    <strong class="font-semibold">Could not triage.</strong> {{ triage_error }}
+  </div>
+{% elif triage is defined and triage %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5 {{ 'ring-2 ring-rose-500' if triage.urgency == 'critical' else '' }}"
+       data-speak="{{ spoken(triage)|trim }}">
+    <h3 class="sr-only">Triage suggestion</h3>
+    {{ triage_body(triage) }}
+    {{ ai_note() }}
+  </div>
+{% endif %}

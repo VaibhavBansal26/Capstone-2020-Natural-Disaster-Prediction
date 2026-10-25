@@ -1,28 +1,61 @@
-{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt, bar %}
-{% set _labels = {'cumulative_rainfall': 'Cumulative rainfall (mm)'} %}
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt %}
+{% set _labels = {'level_now': 'Level now (m)', 'level_1h_ago': 'Level 1 hour ago (m)', 'level_3h_ago': 'Level 3 hours ago (m)', 'rain_3h': 'Rain last 3 hours (mm)', 'rain_6h': 'Rain last 6 hours (mm)', 'rain_24h': 'Rain last 24 hours (mm)'} %}
 {% if error is defined and error %}
   {{ error_box(error) }}
   {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
 {% elif result is defined and result %}
-  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_flood else 'border-slate-200 bg-white' }} p-5"
-       data-speak="Estimated river level {{ '%.2f'|format(result.level_m) }} metres. {% if result.is_flood %}This is above the {{ '%.2f'|format(result.threshold_m) }} metre flood threshold: flood likely.{% else %}This is below the {{ '%.2f'|format(result.threshold_m) }} metre flood threshold: no flood expected.{% endif %}">
+  {% set threshold = result.horizons[0].threshold_m if result.horizons else 1.44 %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5"
+       data-speak="River level forecast for the Hoppers Crossing gauge. {% for h in result.horizons %}In {{ h.hours }} {{ 'hour' if h.hours == 1 else 'hours' }}: {{ '%.2f'|format(h.level_m) }} metres. {% endfor %}The model rarely anticipates sudden rises, so this is not a flood warning.">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h3 class="text-base font-semibold text-slate-900">Estimated river level</h3>
-      {% if result.is_flood %}{{ badge('Flood', 'danger') }}{% else %}{{ badge('No flood', 'ok') }}{% endif %}
+      <h3 class="text-base font-semibold text-slate-900">River level forecast</h3>
+      {% if result.any_flood %}{{ badge('Above 1.44 m reference', 'warn') }}{% else %}{{ badge('Below 1.44 m reference', 'ok') }}{% endif %}
     </div>
+
+    <div class="mt-4 -mx-5 sm:mx-0 overflow-x-auto">
+      <table class="min-w-full text-sm" aria-label="Forecast river level by horizon">
+        <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th scope="col" class="px-3 py-2">Ahead</th>
+            <th scope="col" class="px-3 py-2 text-right">Model forecast</th>
+            <th scope="col" class="px-3 py-2 text-right">Persistence</th>
+            <th scope="col" class="hidden sm:table-cell px-3 py-2 text-right">Change</th>
+            <th scope="col" class="px-3 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for h in result.horizons %}
+          {% set delta = h.level_m - h.persistence_level_m %}
+          <tr>
+            <th scope="row" class="px-3 py-2 font-medium text-slate-900">{{ h.hours }} {{ 'hour' if h.hours == 1 else 'hours' }}</th>
+            <td class="px-3 py-2 text-right tabular-nums font-medium">{{ fmt(h.level_m) }} m</td>
+            <td class="px-3 py-2 text-right tabular-nums text-slate-600">{{ fmt(h.persistence_level_m) }} m</td>
+            <td class="hidden sm:table-cell px-3 py-2 text-right tabular-nums text-slate-600">{{ '+' if h.level_m - h.persistence_level_m > 0 else '' }}{{ fmt(h.level_m - h.persistence_level_m) }} m</td>
+            <td class="px-3 py-2">{% if delta >= 0.10 %}{{ badge('Rising', 'warn') }}{% elif delta <= -0.10 %}{{ badge('Falling', 'info') }}{% else %}{{ badge('Steady', 'ok') }}{% endif %}{% if h.is_flood %} <span class="ml-1 text-xs text-slate-500">above {{ fmt(threshold) }} m</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
     <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {{ metric('Level', fmt(result.level_m), 'm') }}
-      {{ metric('Flood threshold', fmt(result.threshold_m), 'm') }}
-      {{ metric('Margin', ('+' if result.level_m - result.threshold_m > 0 else '') ~ fmt(result.level_m - result.threshold_m), 'm') }}
+      {{ metric('Peak forecast', fmt(result.peak_level_m), 'm') }}
+      {{ metric('Reference level', fmt(threshold), 'm') }}
+      {{ metric('Peak vs now', ('+' if result.peak_level_m - result.horizons[0].persistence_level_m > 0 else '') ~ fmt(result.peak_level_m - result.horizons[0].persistence_level_m), 'm') }}
     </div>
-    <div class="mt-4">
-      <p class="text-xs text-slate-500 mb-1">Level relative to threshold</p>
-      {{ bar((result.level_m / result.threshold_m * 100) if result.threshold_m else 0, 'bg-rose-600' if result.is_flood else 'bg-brand-600', fmt(result.level_m) ~ ' m of ' ~ fmt(result.threshold_m) ~ ' m') }}
-    </div>
+
     <p class="mt-4 text-sm text-slate-600">
-      {% if result.is_flood %}The estimated level exceeds the {{ fmt(result.threshold_m) }} m flood threshold for the Hoppers Crossing gauge.{% else %}Below the {{ fmt(result.threshold_m) }} m threshold at which the Hoppers Crossing gauge is considered to be flooding.{% endif %}
+      <strong>Persistence</strong> is the simplest possible forecast: the level stays where it is now. A useful model has to beat it, so it is shown next to every forecast; the model card shows how often it does on held-out data. "Rising" and "Falling" mean the forecast differs from the current level by at least 10 cm.
     </p>
+    <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="note">
+      <p class="font-medium">Read this before relying on it</p>
+      <ul class="mt-1 list-disc space-y-1 pl-5 text-xs sm:text-sm">
+        <li>The {{ fmt(threshold) }} m reference level comes from the original 2020 project. On this gauge the level has drifted upward over the years and sat above it for most of 2017 and 2018, so being above it does not by itself signal a flood.</li>
+        <li>The model improves only modestly on "no change" and mostly misses sudden rises. Held-out recall for rises of 10 cm or more within 3 hours is under 10%. See the model card.</li>
+        <li>It covers one gauge only (Hoppers Crossing, Werribee River, Melbourne). For flood warnings use your local authority.</li>
+      </ul>
+    </div>
     {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
-    <p class="mt-4 text-xs text-slate-500">Linear regression of river level on cumulative rainfall for a single gauge. Not a forecast.</p>
+    <p class="mt-4 text-xs text-slate-500">Gradient-boosted regressors, one per horizon, for the Hoppers Crossing gauge only. A statistical forecast, not an official flood warning.</p>
   </div>
 {% endif %}

@@ -103,6 +103,10 @@ def test_storm_train_and_predict():
     meta = storm.train()
     assert meta["n_rows"] == 1020
     assert 0.5 < meta["accuracy"] <= 1.0
+    assert 0 < meta["baseline_accuracy"] < meta["accuracy"]  # beats "always the commonest class"
+    assert meta["model_type"] in {"decision_tree", "random_forest"}
+    assert 0.5 < meta["cv_accuracy_mean"] <= 1.0
+    assert "split" in meta and "skill" in meta
     assert set(meta["classes"]) == {"thunderstorm", "sky is clear", "snow", "rain"}
     assert meta["features"] == storm.FEATURES
     result = storm.predict(42.134, 1013, 93, 60, 4)
@@ -118,15 +122,34 @@ def test_storm_train_and_predict():
 
 def test_flood_train_and_predict():
     meta = flood.train()
-    assert meta["n_rows"] > 70000
-    assert meta["features"] == ["Cumulative rainfall (mm)"] and meta["target"] == "Level (m)"
-    assert "coef" in meta and "intercept" in meta and "r2" in meta and "rmse" in meta
-    low = flood.predict(0.0)
-    high = flood.predict(500.0)
-    assert low.threshold_m == flood.FLOOD_THRESHOLD_M == 1.44
-    assert isinstance(low.level_m, float)
-    assert low.is_flood == (low.level_m > 1.44)
-    assert high.level_m != low.level_m  # the input actually reaches the model
+    assert meta["n_rows"] > 60000  # after dropping gaps, outages and stuck-sensor runs
+    assert meta["features"] == [
+        "level_now",
+        "level_1h_ago",
+        "level_3h_ago",
+        "rain_3h",
+        "rain_6h",
+        "rain_24h",
+    ]
+    assert set(meta["horizons"]) == {"1", "3", "6"}
+    for scores in meta["horizons"].values():
+        for key in ("rmse", "r2", "persistence_rmse", "skill_vs_persistence", "flood_precision"):
+            assert key in scores
+        assert scores["rmse"] > 0 and scores["persistence_rmse"] > 0
+    # headline = 3 h horizon, baseline = persistence
+    assert meta["baseline_rmse"] == meta["horizons"]["3"]["persistence_rmse"]
+    assert meta["skill"] == meta["horizons"]["3"]["skill_vs_persistence"]
+    assert "chronological" in meta["split"]
+
+    calm = flood.predict(1.45, 1.45, 1.45, 0.0, 0.0, 0.0)
+    assert [h.hours for h in calm.horizons] == [1, 3, 6]
+    assert all(h.threshold_m == flood.FLOOD_THRESHOLD_M == 1.44 for h in calm.horizons)
+    assert all(h.persistence_level_m == 1.45 for h in calm.horizons)
+    assert calm.peak_level_m == max(h.level_m for h in calm.horizons)
+    assert calm.any_flood == any(h.is_flood for h in calm.horizons)
+    rising = flood.predict(1.60, 1.50, 1.40, 30.0, 45.0, 80.0)
+    # the inputs actually reach the model
+    assert [h.level_m for h in rising.horizons] != [h.level_m for h in calm.horizons]
 
 
 # --------------------------------------------------------------------------- compare (synthetic)
@@ -156,7 +179,8 @@ def test_compare_train_predict_roundtrip(monkeypatch):
     assert registry.is_trained("compare_synthetic")
     results = compare.predict("synthetic", [2.0, 1.0])
     assert [r.name for r in results] == compare.MODEL_NAMES
-    linear = results[-1]
+    assert results[-1].name == compare.BASELINE_NAME and len(results) == 5
+    linear = results[-2]
     assert abs(linear.prediction - (3 * 2.0 - 2 * 1.0)) < 0.5
     assert linear.accuracy_pct > 90 and linear.r2 > 0.95
     assert compare.metrics("synthetic") == meta["metrics"]

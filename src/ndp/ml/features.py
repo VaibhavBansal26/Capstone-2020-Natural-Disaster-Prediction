@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.dummy import DummyRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from ndp.config import get_settings
@@ -95,3 +96,45 @@ def regression_metrics(y_true: Sequence[float], y_pred: Sequence[float]) -> dict
         "rmse": float(np.sqrt(mean_squared_error(truth, pred))),
         "mae": float(mean_absolute_error(truth, pred)),
     }
+
+
+def baseline_metrics(y_train: Sequence[float], y_test: Sequence[float]) -> dict[str, float]:
+    """Score of "always predict the training mean" on the held-out target.
+
+    ``baseline_rmse`` is the number every regressor has to beat; ``baseline_r2`` is
+    slightly negative (or about 0) because the test mean differs from the train mean.
+    """
+    train = np.asarray(y_train, dtype=float).ravel()
+    test = np.asarray(y_test, dtype=float).ravel()
+    dummy = DummyRegressor(strategy="mean").fit(train.reshape(-1, 1), train)
+    pred = dummy.predict(test.reshape(-1, 1))
+    return {
+        "baseline_rmse": float(np.sqrt(mean_squared_error(test, pred))),
+        "baseline_r2": float(r2_score(test, pred)),
+    }
+
+
+def skill_score(rmse: float, baseline_rmse: float) -> float:
+    """``1 - rmse / baseline_rmse``: 0 means no better than the baseline, negative is worse."""
+    if not baseline_rmse or not np.isfinite(baseline_rmse):
+        return 0.0
+    return float(1.0 - rmse / baseline_rmse)
+
+
+def honest_metadata(
+    y_train: Sequence[float], y_test: Sequence[float], y_pred: Sequence[float], split: str
+) -> dict[str, Any]:
+    """Held-out r2/rmse/mae plus the baseline, skill and split every regressor records."""
+    scores = regression_metrics(y_test, y_pred)
+    base = baseline_metrics(y_train, y_test)
+    return {
+        **scores,
+        **base,
+        "skill": skill_score(scores["rmse"], base["baseline_rmse"]),
+        "split": split,
+    }
+
+
+def cv_summary(scores: Sequence[float]) -> dict[str, float]:
+    arr = np.asarray(scores, dtype=float)
+    return {"cv_r2_mean": float(arr.mean()), "cv_r2_std": float(arr.std())}

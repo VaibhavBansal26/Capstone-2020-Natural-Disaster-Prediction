@@ -1,0 +1,43 @@
+{# One exchange: the user's message, then either the answer or a friendly error. #}
+<div class="space-y-3" data-turn>
+  <div class="flex justify-end">
+    <div class="max-w-[90%] whitespace-pre-line break-words rounded-2xl rounded-br-sm bg-brand-600 px-4 py-2 text-sm text-white">{{ question }}</div>
+  </div>
+  <div class="flex">
+    {% if error is defined and error %}
+    <div role="alert" class="max-w-[95%] break-words rounded-2xl rounded-bl-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{{ error }}</div>
+    {% else %}
+    <div class="max-w-[95%] min-w-0 break-words rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm"
+         {% if turn.refused %}role="alert"{% endif %}>
+      <div class="assistant-answer" data-speak="{{ turn.answer|assistant_plain }}">{{ turn.answer|assistant_md }}</div>
+
+      {% if turn.tools_used %}
+      {% set ns = namespace(names=[], notes={}) %}
+      {% for call in turn.tools_used %}
+        {% if call.name not in ns.names %}{% set _ = ns.names.append(call.name) %}{% endif %}
+        {% set _ = ns.notes.update({call.name: (ns.notes.get(call.name, '') ~ ('; ' if ns.notes.get(call.name) else '') ~ call.summary)}) %}
+      {% endfor %}
+      <p class="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500" data-tools>
+        <span>Used:</span>
+        {% for name in ns.names %}
+          {% set note = ns.notes[name] %}
+          <span class="rounded-full px-2 py-0.5 font-mono text-[11px] ring-1 ring-inset {{ 'bg-amber-50 text-amber-800 ring-amber-600/20' if 'failed' in note else 'bg-slate-100 text-slate-700 ring-slate-500/20' }}"
+                title="{{ note }}">{{ name }}</span>
+        {% endfor %}
+      </p>
+      {% endif %}
+
+      {% if turn.sources %}
+      <div class="mt-2 text-xs text-slate-500" data-sources>
+        <span class="font-medium">Sources</span>
+        <ul class="mt-1 space-y-0.5">
+          {% for source in turn.sources %}{% if source.url.startswith('https://') %}
+          <li><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" class="break-words text-brand-700 underline hover:text-brand-900">{{ source.title }}</a></li>
+          {% endif %}{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>

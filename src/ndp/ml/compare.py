@@ -1,4 +1,9 @@
-"""Side-by-side comparison of four regressors on each hazard dataset.
+"""Side-by-side comparison of four regressors and a baseline on each hazard dataset.
+
+The last entry, "Baseline (predict the mean)", always answers with the training-set mean, so a
+reader can see whether any model is better than guessing the average. Splits here are shuffled
+(75/25) as in the original comparison; for time-ordered hazards (flood, hurricane, earthquake)
+this flatters every model, which is exactly why the dedicated modules use chronological splits.
 
 One artifact per hazard (``compare_<hazard>``) holds the fitted pipelines; the
 per-model metrics live in its metadata so the page can render them without
@@ -12,6 +17,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import pandas as pd
+from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
@@ -21,9 +27,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 
 from ndp.ml import plots, registry
-from ndp.ml.features import regression_metrics, single_row, tolerance_accuracy
+from ndp.ml.features import (
+    baseline_metrics,
+    regression_metrics,
+    single_row,
+    skill_score,
+    tolerance_accuracy,
+)
 
-MODEL_NAMES = ["Random forest", "Neural network", "SVM", "Linear regression"]
+BASELINE_NAME = "Baseline (predict the mean)"
+MODEL_NAMES = ["Random forest", "Neural network", "SVM", "Linear regression", BASELINE_NAME]
 DEFAULT_MAX_ROWS = 15000
 
 
@@ -67,6 +80,7 @@ def _tsunami_frame() -> pd.DataFrame:
 def _flood_frame() -> pd.DataFrame:
     from ndp.ml import flood
 
+    # hours with missing readings or logger outages are NaN and dropped by ``train``
     return flood.load_merged()[[flood.CURRENT_COL, flood.RAIN_COL, flood.LEVEL_COL]]
 
 
@@ -133,6 +147,7 @@ def build_models() -> dict[str, Pipeline]:
         "Neural network": MLPRegressor(hidden_layer_sizes=(100,), max_iter=1500, random_state=0),
         "SVM": SVR(),
         "Linear regression": LinearRegression(),
+        BASELINE_NAME: DummyRegressor(strategy="mean"),
     }
     return {name: make_pipeline(StandardScaler(), estimators[name]) for name in MODEL_NAMES}
 
@@ -156,6 +171,7 @@ def train(hazard: str, max_rows: int = DEFAULT_MAX_ROWS) -> dict:
 
     models = build_models()
     metrics: dict[str, dict[str, float]] = {}
+    baseline_rmse = baseline_metrics(y_train, y_test)["baseline_rmse"]
     for name in MODEL_NAMES:
         model = models[name]
         model.fit(X_train, y_train)
@@ -165,11 +181,15 @@ def train(hazard: str, max_rows: int = DEFAULT_MAX_ROWS) -> dict:
             "accuracy_pct": tolerance_accuracy(y_test, y_pred),
             "r2": scores["r2"],
             "rmse": scores["rmse"],
+            "skill": skill_score(scores["rmse"], baseline_rmse),
         }
 
     plots.bar_comparison(
         f"{spec.name}: accuracy within 10% of max {spec.target}",
-        {name: metrics[name]["accuracy_pct"] for name in MODEL_NAMES},
+        {
+            ("Baseline (mean)" if name == BASELINE_NAME else name): metrics[name]["accuracy_pct"]
+            for name in MODEL_NAMES
+        },
         "compare",
         f"{hazard}_accuracy.png",
         "Accuracy (%)",
@@ -178,6 +198,9 @@ def train(hazard: str, max_rows: int = DEFAULT_MAX_ROWS) -> dict:
     artifact = {"models": models, "features": list(spec.features), "target": spec.target}
     metadata = {
         "metrics": metrics,
+        "baseline": BASELINE_NAME,
+        "baseline_rmse": baseline_rmse,
+        "split": "random 75/25 split (shuffled), same rows for every model",
         "n_rows": int(len(df)),
         "features": list(spec.features),
         "target": spec.target,

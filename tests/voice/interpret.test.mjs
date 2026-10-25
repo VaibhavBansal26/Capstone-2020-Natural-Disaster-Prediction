@@ -360,3 +360,29 @@ test("text helpers: chunking, cleaning, voice choice, summaries", () => {
   assert.ok(s.length <= 281);
   assert.equal(capSummary("short text"), "short text");
 });
+
+const floodForecast = {
+  now: NOW,
+  fields: [
+    { name: "level_now", label: "Level now (m)", type: "number", min: "0", max: "15" },
+    { name: "level_1h_ago", label: "Level 1 hour ago (m)", type: "number", min: "0", max: "15" },
+    { name: "level_3h_ago", label: "Level 3 hours ago (m)", type: "number", min: "0", max: "15" },
+    { name: "rain_3h", label: "Rain last 3 hours (mm)", type: "number", min: "0", max: "500" },
+    { name: "rain_6h", label: "Rain last 6 hours (mm)", type: "number", min: "0", max: "500" },
+    { name: "rain_24h", label: "Rain last 24 hours (mm)", type: "number", min: "0", max: "500" },
+  ],
+};
+
+test("flood forecast form: full labels and short spoken forms resolve to the right fields", () => {
+  assert.deepEqual(
+    fills(interpret("level now 1.2 level 1 hour ago 1.1 level 3 hours ago 1.0", floodForecast)),
+    { level_now: 1.2, level_1h_ago: 1.1, level_3h_ago: 1.0 }
+  );
+  assert.deepEqual(
+    fills(interpret("rain 3 hours 4 rain 6 hours 8 rain 24 hours 20", floodForecast)),
+    { rain_3h: 4, rain_6h: 8, rain_24h: 20 }
+  );
+  assert.deepEqual(fills(interpret("level three hours ago 1.4", floodForecast)), { level_3h_ago: 1.4 });
+  assert.deepEqual(fills(interpret("rain twenty four hours 35", floodForecast)), { rain_24h: 35 });
+  assert.deepEqual(fills(interpret("level 1.2", floodForecast)), { level_now: 1.2 });
+});

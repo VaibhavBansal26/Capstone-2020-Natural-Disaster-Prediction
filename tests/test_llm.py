@@ -95,3 +95,26 @@ def test_text_of_skips_non_text_blocks():
         "R", (), {"content": [block("thinking"), block("text", text=" hello "), block("tool_use")]}
     )()
     assert llm.text_of(response) == "hello"
+
+
+def test_usage_totals_accumulate(env, monkeypatch):
+    env(ANTHROPIC_API_KEY="sk-test", NDP_ANTHROPIC_MODEL="claude-haiku-5-5")
+
+    class Usage:
+        input_tokens = 100
+        output_tokens = 20
+        cache_read_input_tokens = 0
+        cache_creation_input_tokens = 0
+
+    class Plain:
+        def create(self, **kw):
+            return type("R", (), {"usage": Usage(), "content": [], "stop_reason": "end_turn"})()
+
+    fake = type("C", (), {"messages": Plain()})()
+    monkeypatch.setattr(llm, "get_client", lambda: fake)
+    before = llm.usage_totals()
+    llm.create_message(max_tokens=10, messages=[])
+    after = llm.usage_totals()
+    assert after["requests"] == before["requests"] + 1
+    assert after["input_tokens"] == before["input_tokens"] + 100
+    assert after["output_tokens"] == before["output_tokens"] + 20

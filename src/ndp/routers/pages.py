@@ -31,7 +31,7 @@ def index(request: Request):
     modules = [
         {
             "name": "Earthquake",
-            "blurb": "Estimate magnitude for a location, depth and date; live USGS feed on a map.",
+            "blurb": "Historical earthquake hazard by place, plus the live USGS feed.",
             "endpoint": "earthquake_page",
             "status": _status(eq.MODEL),
         },
@@ -43,7 +43,7 @@ def index(request: Request):
         },
         {
             "name": "Flood",
-            "blurb": "River level from cumulative rainfall at Hoppers Crossing (threshold 1.44 m).",
+            "blurb": "River-level forecast for the Hoppers Crossing gauge, 1 to 6 hours ahead.",
             "endpoint": "flood_page",
             "status": _status(flood.MODEL),
         },
@@ -72,6 +72,18 @@ def index(request: Request):
             "status": "ready"
             if (settings.email_configured or settings.sms_configured)
             else "not configured",
+        },
+        {
+            "name": "Live hazards",
+            "blurb": "Global alerts, a weather outlook for any place, and the alert watcher.",
+            "endpoint": "live_page",
+            "status": "ready",
+        },
+        {
+            "name": "Assistant",
+            "blurb": "Ask in plain language; Claude uses live tools and cites guidance.",
+            "endpoint": "assistant_page",
+            "status": "ready" if settings.llm_configured else "not configured",
         },
         {
             "name": "Sentiment",

@@ -70,6 +70,31 @@ Please follow official guidance and move to safety.
           class="mt-4 space-y-4">
       <input type="hidden" name="place" value="{{ place.name }}">
       {{ textarea('message', 'Message', value=_msg, rows=7) }}
+
+      <fieldset class="rounded-lg border border-slate-200 p-4" id="translate-box">
+        <legend class="px-1 text-sm font-medium text-slate-700">Translate (optional)</legend>
+        {% if llm_enabled is defined and llm_enabled %}
+        <p class="text-xs text-slate-500">Tick the languages to include. Claude drafts each translation for you to read and edit; nothing is sent in a language you have not reviewed. Machine translation can be wrong, so ask a speaker to check anything important.</p>
+        <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+          {% for lang in languages %}
+          <label class="inline-flex items-center gap-2 text-slate-700">
+            <input type="checkbox" name="languages" value="{{ lang.code }}" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
+            <span>{{ lang.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <button type="button" data-voice-command="preview translations"
+                hx-post="{{ url_for('alerts_translate') }}" hx-target="#translations" hx-swap="innerHTML"
+                hx-confirm="unset" hx-indicator="find .htmx-indicator" hx-disabled-elt="this"
+                class="mt-3 inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+          Preview translations
+          <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin"></span>
+        </button>
+        <div id="translations" class="mt-3 space-y-3" aria-live="polite"></div>
+        {% else %}
+        <p class="text-xs text-slate-500" id="translate-off">Translation is off on this server. It uses Claude: set <code class="font-mono">ANTHROPIC_API_KEY</code> to enable drafting translations here. You can still paste your own translation into the message above.</p>
+        {% endif %}
+      </fieldset>
       {{ field('phone', 'Phone number (optional)', type='tel', value='', placeholder='+91 98765 43210', required=False, help='Overrides the configured SMS recipient for this alert only.') }}
       <button type="submit" data-voice-command="send alert" data-voice-confirm
               class="inline-flex items-center gap-2 rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">

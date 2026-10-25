@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 from ndp.config import get_settings
 from ndp.main import create_app
-from ndp.ml.earthquake import EarthquakePrediction
 from ndp.routers import earthquake as eq_router
 from ndp.services import alerting, geo
 from ndp.services.geo import NearbyPlace, Place
@@ -105,69 +104,38 @@ def test_send_in_dry_run_says_so(client, env):
     assert "Dry run, nothing was sent" in resp.text
 
 
-def _fake_predict(magnitude):
-    severity = "strong" if magnitude >= 6 else "moderate"
-    return lambda lat, lon, depth, on: EarthquakePrediction(magnitude, severity, magnitude >= 6)
+def test_earthquake_router_has_no_model_based_auto_alert():
+    """The 2020 behaviour (alert whenever a model estimates M >= 6) is gone: alerts are tied to
+    real USGS events (the watcher) or to a person pressing the button."""
+    from ndp.routers import earthquake as eq_router
+
+    assert not hasattr(eq_router, "_auto_alert")
+    assert not hasattr(eq_router, "BackgroundTasks")
 
 
-FORM = {"lat": "28.6", "lon": "77.2", "depth": "10", "date": "2026-10-25"}
+def test_hazard_result_offers_nearby_help_without_sending(client, monkeypatch, env):
+    from tests.test_phase2_web import make_hazard
 
-
-def test_strong_quake_offers_nearby_button_but_does_not_auto_send(client, monkeypatch, env):
-    env(auto_alert="false")
-    monkeypatch.setattr(eq_router.eq, "predict", _fake_predict(6.5))
+    env(auto_alert="true", alerts_dry_run="false")  # even if the old flag is set: nothing is sent
+    monkeypatch.setattr(
+        eq_router.hazard, "predict", lambda lat, lon, radius_km=300.0: make_hazard()
+    )
     sent = []
     monkeypatch.setattr(alerting, "dispatch", lambda *a, **k: sent.append(a))
-    html = client.post("/earthquake/predict", headers=HX, data=FORM).text
+    html = client.post(
+        "/earthquake/predict", headers=HX, data={"lat": "35.7", "lon": "139.7", "radius_km": "300"}
+    ).text
     assert 'data-voice-command="find nearby help"' in html
-    assert 'data-speak-priority="alert"' in html
-    assert "Automatic alert queued" not in html
+    assert 'name="magnitude"' not in html and "Automatic alert" not in html
     assert sent == []
 
 
-def test_weak_quake_has_no_alert_priority(client, monkeypatch):
-    monkeypatch.setattr(eq_router.eq, "predict", _fake_predict(5.2))
-    html = client.post("/earthquake/predict", headers=HX, data=FORM).text
-    assert "data-speak-priority" not in html
-    assert "Below the alert threshold" in html
-
-
-def test_auto_alert_dispatches_in_background(client, monkeypatch, env):
-    env(auto_alert="true", alerts_dry_run="true")
-    monkeypatch.setattr(eq_router.eq, "predict", _fake_predict(6.5))
-    captured = {}
-
-    def fake_dispatch(place_name, body, phone=None):
-        captured.update(place=place_name, body=body)
-        return alerting.DispatchResult(channels=["email to ops@example.com"])
-
-    monkeypatch.setattr(alerting, "dispatch", fake_dispatch)
-    eq_router._recent.clear()
-    html = client.post("/earthquake/predict", headers=HX, data=FORM).text
-    assert "Automatic alert queued" in html
-    assert captured["place"] == "Delhi, India"
-    assert "magnitude 6.5 Mw" in captured["body"] and "City Hospital" in captured["body"]
-    assert eq_router._recent[0]["alert_status"].startswith("sent: email")
-
-
-def test_auto_alert_survives_facility_lookup_failure(client, monkeypatch, env):
-    env(auto_alert="true")
-    monkeypatch.setattr(eq_router.eq, "predict", _fake_predict(6.5))
-
-    def down(*a, **k):
-        raise geo.ServiceError("overpass busy")
-
-    monkeypatch.setattr(geo, "nearby_services", down)
-    seen = {}
-    monkeypatch.setattr(
-        alerting,
-        "dispatch",
-        lambda name, body, phone=None: seen.update(body=body) or alerting.DispatchResult(),
+def test_nearby_help_from_a_hazard_result_works_without_magnitude(client):
+    resp = client.post(
+        "/alerts/nearby", headers=HX, data={"lat": "35.7", "lon": "139.7", "radius_km": "30"}
     )
-    eq_router._recent.clear()
-    client.post("/earthquake/predict", headers=HX, data=FORM)
-    assert "EARTHQUAKE ALERT" in seen["body"]  # alert still goes out, just without facilities
-    assert eq_router._recent[0]["alert_status"] == "not sent (no channel configured)"
+    assert resp.status_code == 200
+    assert "City Hospital" in resp.text and "EARTHQUAKE ALERT" not in resp.text
 
 
 def test_live_events_panel_feeds_real_magnitudes_to_nearby_help(client, monkeypatch):

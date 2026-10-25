@@ -1,14 +1,39 @@
 {#
-  Model card: when the artifact was trained and its headline metrics.
+  Model card: when the artifact was trained, how honest its evaluation was, and its headline metrics.
   Context: `meta` (registry metadata dict or None), `trained` (bool).
   Optional: `model_label` (string shown in the heading).
+  Generic on purpose: any scalar key in the metadata is shown, with a plain label when one is
+  known, so new keys added by `ml/*` appear without touching this file. `skill` drives the verdict:
+  skill = 1 - rmse / baseline_rmse, i.e. how much of the error of "always predict the average" the
+  model removes.
 #}
 {% from "partials/_form_bits.html" import badge, fmt %}
 {% set _labels = {
-  'r2': 'R²', 'rmse': 'RMSE', 'mae': 'MAE', 'accuracy': 'Accuracy', 'n_rows': 'Training rows',
+  'r2': 'R²', 'rmse': 'RMSE (error)', 'mae': 'MAE', 'accuracy': 'Accuracy', 'n_rows': 'Training rows',
   'n_days': 'Days of data', 'last_date': 'Last data date', 'coef': 'Coefficient', 'intercept': 'Intercept',
+  'skill': 'Skill vs. baseline', 'baseline_rmse': 'Baseline RMSE', 'baseline': 'Baseline',
+  'baseline_r2': 'Baseline R²', 'split': 'How it was tested',
+  'cv_r2_mean': 'Cross-validated R²', 'baseline_accuracy': 'Baseline accuracy (most common class)',
+  'cv_accuracy_mean': 'Cross-validated accuracy', 'n_events': 'Events', 'years_span': 'Years covered',
+  'mc': 'Completeness magnitude (Mc)', 'b_value_global': 'Global b-value', 'year_min': 'First year',
+  'year_max': 'Last year', 'annual_rate_global_m55': 'Global M ≥ 5.5 per year', 'method': 'Method',
 } %}
-{% set _skip = ['name', 'trained_at', 'metrics', 'classes', 'by_year', 'by_month', 'magnitude_bins'] %}
+{# Bookkeeping keys (row counts, feature lists, plot windows) stay in the JSON sidecar, not on the card.
+   cv_r2_std is folded into the cv_r2_mean tile; dict-valued keys (per-horizon metrics) get their own table. #}
+{% set _skip = ['name', 'trained_at', 'metrics', 'classes', 'notes', 'by_year', 'by_month', 'magnitude_bins', 'cv_r2_std', 'horizons',
+  'n_train', 'n_test', 'n_hours_in_record', 'n_hours_missing_level', 'features', 'model_features',
+  'headline_horizon_h', 'horizons_h', 'forecast_plot_window', 'target', 'threshold_m',
+  'share_above_threshold_by_year', 'backtest'] %}
+{% set _year_keys = ['year_min', 'year_max', 'years_span'] %}
+{% set _hz = {} %}
+{% if meta %}
+  {% for k, v in meta.items() %}
+    {% if v is mapping and 'persistence_rmse' in v %}{% set _ = _hz.update({k: v}) %}{% endif %}
+  {% endfor %}
+  {% if meta.horizons is mapping %}
+    {% for k, v in meta.horizons.items() %}{% if v is mapping %}{% set _ = _hz.update({k: v}) %}{% endif %}{% endfor %}
+  {% endif %}
+{% endif %}
 <section class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
   <div class="flex items-start justify-between gap-3">
     <div>
@@ -22,14 +47,45 @@
     {% if meta.trained_at %}
       <p class="mt-2 text-xs text-slate-500">Trained <time datetime="{{ meta.trained_at }}">{{ meta.trained_at|replace('T', ' ')|replace('+00:00', ' UTC') }}</time></p>
     {% endif %}
+
+    {# Verdict: skill is the share of the baseline's error the model removes. #}
+    {% if meta.skill is defined and meta.skill is number %}
+      {% set _s = meta.skill %}
+      {% set _base = 'the baseline' if (meta.baseline is defined and meta.baseline is string) else 'predicting the average' %}
+      {% if _s < 0.05 %}{% set _verdict, _tone = ('no better than ' ~ _base), 'danger' %}
+      {% elif _s < 0.25 %}{% set _verdict, _tone = 'weak', 'warn' %}
+      {% elif _s < 0.5 %}{% set _verdict, _tone = 'moderate', 'info' %}
+      {% else %}{% set _verdict, _tone = 'useful', 'ok' %}{% endif %}
+      <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700" data-model-verdict="{{ _tone }}">
+        {{ badge('Verdict', _tone) }}
+        <span>Skill {{ fmt(_s) }}: <strong>{{ _verdict }}</strong>. Skill is how much of the error of {% if meta.baseline is defined and meta.baseline is string %}the baseline, <em>{{ meta.baseline }}</em>,{% else %}always guessing the average{% endif %} the model removes (0 = none, 1 = all).</span>
+      </p>
+    {% elif meta.accuracy is defined and meta.baseline_accuracy is defined and meta.accuracy is number and meta.baseline_accuracy is number %}
+      {% set _gain = (meta.accuracy - meta.baseline_accuracy) * (100 if meta.accuracy <= 1 else 1) %}
+      <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700" data-model-verdict="{{ 'ok' if _gain >= 5 else 'warn' }}">
+        {{ badge('Verdict', 'ok' if _gain >= 5 else 'warn') }}
+        <span>{% if _gain >= 5 %}Beats always guessing the most common class by <strong>{{ fmt(_gain, 1) }} points</strong>.{% elif _gain > 0 %}Only <strong>{{ fmt(_gain, 1) }} points</strong> better than always guessing the most common class.{% else %}<strong>No better than always guessing the most common class.</strong>{% endif %}</span>
+      </p>
+    {% endif %}
+
     <dl class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
       {% for key, value in meta.items() if key not in _skip and (value is number or value is string) %}
-        <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5 {{ 'col-span-2 sm:col-span-3' if (value is string and value|length > 28) else '' }}">
           <dt class="text-[11px] uppercase tracking-wide text-slate-500">{{ _labels.get(key, key|replace('_', ' ')) }}</dt>
           <dd class="mt-0.5 font-semibold text-slate-900 tabular-nums">
-            {%- if key == 'accuracy' and value is number and value <= 1 -%}
+            {%- if value is sameas true or value is sameas false -%}
+              {{ 'yes' if value else 'no' }}
+            {%- elif key in ('accuracy', 'baseline_accuracy', 'cv_accuracy_mean') and value is number and value <= 1 -%}
               {{ fmt(value * 100) }}<span class="text-xs font-normal text-slate-500"> %</span>
-            {%- elif key == 'n_rows' or key == 'n_days' -%}
+            {%- elif key == 'cv_r2_mean' and meta.cv_r2_std is defined and meta.cv_r2_std is number -%}
+              {{ fmt(value) }}<span class="text-xs font-normal text-slate-500"> ± {{ fmt(meta.cv_r2_std) }}</span>
+            {%- elif key in _year_keys -%}
+              {{ value|int }}
+            {%- elif key == 'split' -%}
+              <span class="font-medium">{{ value }}</span>
+            {%- elif value is string -%}
+              {{ value }}
+            {%- elif value is integer -%}
               {{ '{:,}'.format(value|int) }}
             {%- else -%}
               {{ fmt(value) }}
@@ -38,6 +94,50 @@
         </div>
       {% endfor %}
     </dl>
+
+    {% if _hz %}
+      <h3 class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Held-out error by forecast horizon</h3>
+      <div class="mt-2 -mx-5 sm:mx-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-3 py-2">Horizon</th>
+              <th scope="col" class="px-3 py-2 text-right">Model RMSE</th>
+              <th scope="col" class="px-3 py-2 text-right">Persistence RMSE</th>
+              <th scope="col" class="px-3 py-2 text-right">Skill vs persistence</th>
+              <th scope="col" class="px-3 py-2 text-right">R²</th>
+              <th scope="col" class="px-3 py-2 text-right">Flood precision</th>
+              <th scope="col" class="px-3 py-2 text-right">Flood recall</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for h, m in _hz.items()|sort(attribute='0') %}
+            <tr>
+              <th scope="row" class="px-3 py-2 font-medium text-slate-900">{{ h }} h</th>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.rmse, 3) if m.rmse is defined else '–' }}</td>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.persistence_rmse, 3) if m.persistence_rmse is defined else '–' }}</td>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.skill_vs_persistence) if m.skill_vs_persistence is defined and m.skill_vs_persistence is not none else '–' }}</td>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.r2, 3) if m.r2 is defined else '–' }}</td>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.flood_precision) if m.flood_precision is defined and m.flood_precision is not none else '–' }}</td>
+              <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.flood_recall) if m.flood_recall is defined and m.flood_recall is not none else '–' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">Skill vs persistence above 0 means the model beats "the level stays as it is now" on data it never saw during training. Flood precision: share of forecast floods that happened. Flood recall: share of real floods the model caught.</p>
+    {% endif %}
+
+    {% if meta.backtest is mapping and meta.backtest.lift is defined %}
+      <p class="mt-3 text-xs text-slate-600">Back-test ({{ meta.backtest.train_period }} → {{ meta.backtest.test_period }}): the places that had earthquakes before the split took {{ fmt(meta.backtest.share_of_globe_in_active_cells * 100, 0) }}% of the globe but received {{ fmt(meta.backtest.share_of_test_events_in_active_cells * 100, 0) }}% of the later M ≥ 6 events (lift {{ fmt(meta.backtest.lift, 1) }}×). Past seismicity is a good guide to where, not when.</p>
+    {% endif %}
+
+    {% if meta.notes is sequence and meta.notes is not string and meta.notes %}
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-600">
+        {% for note in meta.notes %}<li>{{ note }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
     {% if meta.classes %}
       <p class="mt-3 text-xs text-slate-500">Classes: {{ meta.classes|join(', ') }}</p>
     {% endif %}

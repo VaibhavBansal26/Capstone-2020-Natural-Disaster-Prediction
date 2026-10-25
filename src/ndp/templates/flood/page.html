@@ -1,26 +1,38 @@
 {% extends "base.html" %}
-{% from "partials/_form_bits.html" import field, submit, card %}
-{% block title %}Flood prediction{% endblock %}
+{% from "partials/_form_bits.html" import field, submit, card, notice %}
+{% block title %}Flood forecast{% endblock %}
 {% block content %}
 {% set v = inputs if inputs is defined and inputs else {} %}
-<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Flood prediction</h1>
-<p class="mt-1 max-w-2xl text-sm text-slate-600">Estimate the river level at the Hoppers Crossing gauge (Werribee River, Victoria, Australia) from the rainfall accumulated so far, and whether it would exceed the 1.44 m flood threshold. A deliberately simple linear model: more rain, higher river.</p>
+{% set d = defaults if defaults is defined and defaults else {} %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Flood forecast</h1>
+<p class="mt-1 max-w-3xl text-sm text-slate-600">Forecast the river level 1, 3 and 6 hours ahead at the Hoppers Crossing gauge (Werribee River, Melbourne, Australia) from the current level, the level an hour and three hours ago, and the rain that has fallen. A level above {{ '%.2f'|format(threshold_m if threshold_m is defined else 1.44) }} m counts as flooding at this gauge.</p>
+
+<div class="mt-4 max-w-3xl">
+  {% call notice('', 'warn') %}
+    <strong class="font-semibold">One gauge only.</strong> This model is specific to the Hoppers Crossing gauge and was trained on that gauge's hourly record (rainfall and river level, 2009 to 2018). It does not apply to any other river and is not an official flood warning. For real flood warnings, follow your local emergency service.
+  {% endcall %}
+</div>
 
 <div class="mt-6 grid gap-6 lg:grid-cols-5">
-  <div class="lg:col-span-2 space-y-6">
-    {% call card('Inputs', 'Rainfall accumulated over the event, in millimetres.') %}
+  <div class="min-w-0 lg:col-span-2 space-y-6">
+    {% call card('Current conditions', 'Levels in metres at the gauge; rainfall totals in millimetres. The defaults describe a quiet day.') %}
       <form method="post" action="{{ url_for('flood_predict') }}"
             hx-post="{{ url_for('flood_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
             class="space-y-4">
-        {{ field('cumulative_rainfall', 'Cumulative rainfall (mm)', value=v.get('cumulative_rainfall', 200), min=0, help='The training data ranges from 0 to a few hundred millimetres.') }}
-        {{ submit('Estimate river level') }}
+        {{ field('level_now', 'Level now (m)', value=v.get('level_now', d.get('level_now', '1.42')), step='0.01', min=0, max=15, help='Typical range 1.3 to 1.6 m at this gauge.') }}
+        {{ field('level_1h_ago', 'Level 1 hour ago (m)', value=v.get('level_1h_ago', d.get('level_1h_ago', '1.41')), step='0.01', min=0, max=15) }}
+        {{ field('level_3h_ago', 'Level 3 hours ago (m)', value=v.get('level_3h_ago', d.get('level_3h_ago', '1.40')), step='0.01', min=0, max=15) }}
+        {{ field('rain_3h', 'Rain last 3 hours (mm)', value=v.get('rain_3h', d.get('rain_3h', '2')), step='0.1', min=0, max=500) }}
+        {{ field('rain_6h', 'Rain last 6 hours (mm)', value=v.get('rain_6h', d.get('rain_6h', '3')), step='0.1', min=0, max=500, help='Includes the last 3 hours.') }}
+        {{ field('rain_24h', 'Rain last 24 hours (mm)', value=v.get('rain_24h', d.get('rain_24h', '5')), step='0.1', min=0, max=500, help='Includes the last 6 hours.') }}
+        {{ submit('Forecast river level') }}
       </form>
     {% endcall %}
     <div id="result" aria-live="polite">
       {% if result is defined or error is defined %}{% include "flood/_result.html" %}{% endif %}
     </div>
   </div>
-  <div class="lg:col-span-3 space-y-6">
+  <div class="min-w-0 lg:col-span-3 space-y-6">
     {% include "partials/_model_card.html" %}
     {% include "partials/_plots.html" %}
   </div>
