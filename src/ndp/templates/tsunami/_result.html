@@ -1,0 +1,24 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt %}
+{% set _labels = {'lat': 'Latitude', 'lon': 'Longitude', 'max_height': 'Max wave height (m)'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.risk else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Estimated source magnitude {{ '%.1f'|format(result.magnitude) }}. {% if result.risk %}High tsunami risk: at or above the magnitude 6.5 threshold.{% else %}Low tsunami risk: below the magnitude 6.5 threshold.{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Estimated source magnitude</h3>
+      {% if result.risk %}{{ badge('High risk: M ≥ 6.5', 'danger') }}{% else %}{{ badge('Low risk', 'ok') }}{% endif %}
+    </div>
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {{ metric('Magnitude', fmt(result.magnitude), 'Mw') }}
+      {{ metric('Risk threshold', '6.50', 'Mw') }}
+      {{ metric('Risk', 'Yes' if result.risk else 'No') }}
+    </div>
+    <p class="mt-4 text-sm text-slate-600">
+      {% if result.risk %}A source earthquake of this size at this location and wave height is in the band that has historically produced destructive tsunamis.{% else %}Below the 6.5 threshold used by the project to flag destructive tsunami potential.{% endif %}
+    </p>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Neural-network regression over the NOAA/NGDC historical tsunami database (latitude, longitude, maximum water height). Not a forecast.</p>
+  </div>
+{% endif %}

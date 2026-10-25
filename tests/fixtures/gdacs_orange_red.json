@@ -1,0 +1,467 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "bbox": [
+    126.3,
+    30.7,
+    126.3,
+    30.7
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     126.3,
+     30.7
+    ]
+   },
+   "properties": {
+    "eventtype": "TC",
+    "eventid": 1001338,
+    "episodeid": 45,
+    "eventname": "CHAMPI-26",
+    "glide": "TC-2026-000192-GUM",
+    "name": "Tropical Cyclone CHAMPI-26",
+    "description": "Tropical Cyclone CHAMPI-26",
+    "htmldescription": "Red Tropical Cyclone CHAMPI-26 in Philippines, Guam, Northern Mariana Islands, Japan, China, South Korea from: 14 Oct 2026  to: 25 Oct 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Red/TC.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001338&episodeid=45",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1001338&episodeid=45&eventtype=TC",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001338"
+    },
+    "alertlevel": "Red",
+    "alertscore": 3,
+    "episodealertlevel": "Green",
+    "episodealertscore": 1.0,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "Philippines, Guam, Northern Mariana Islands, Japan, China, South Korea",
+    "fromdate": "2026-10-14T12:00:00",
+    "todate": "2026-10-25T12:00:00",
+    "datemodified": "2026-10-25T16:00:50",
+    "iso3": "GUM",
+    "source": "JTWC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "countryonland": "",
+    "affectedcountries": [
+     {
+      "iso2": "PH",
+      "iso3": "PHL",
+      "countryname": "Philippines"
+     },
+     {
+      "iso2": "GU",
+      "iso3": "GUM",
+      "countryname": "Guam"
+     },
+     {
+      "iso2": "JP",
+      "iso3": "JPN",
+      "countryname": "Japan"
+     },
+     {
+      "iso2": "CN",
+      "iso3": "CHN",
+      "countryname": "China"
+     },
+     {
+      "iso2": "KR",
+      "iso3": "KOR",
+      "countryname": "South Korea"
+     }
+    ],
+    "severitydata": {
+     "severity": 296.2944,
+     "severitytext": "Tropical Storm (maximum wind speed of 296 km/h)",
+     "severityunit": "km/h"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    32.075,
+    -1.214,
+    32.075,
+    -1.214
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     32.075,
+     -1.214
+    ]
+   },
+   "properties": {
+    "eventtype": "DR",
+    "eventid": 1027465,
+    "episodeid": 9,
+    "eventname": "Uganda, Kenya, Tanzania, Rwanda, Burundi-2026",
+    "glide": "DR-2026-000143-COD",
+    "name": "Drought in Burundi, Democratic Republic of Congo, Kenya, Rwanda, Tanzania, Uganda",
+    "description": "Drought in Burundi, Democratic Republic of Congo, Kenya, Rwanda, Tanzania, Uganda",
+    "htmldescription": "Orange Drought in Burundi, Democratic Republic of Congo, Kenya, Rwanda, Tanzania, Uganda from: 21 May 2026  to: 23 Oct 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/DR.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/DR.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=DR&eventid=1027465&episodeid=9",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1027465&episodeid=9&eventtype=DR",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=DR&eventid=1027465"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Orange",
+    "episodealertscore": 1.25,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "Burundi, Democratic Republic of Congo, Kenya, Rwanda, Tanzania, Uganda",
+    "fromdate": "2026-05-21T00:00:00",
+    "todate": "2026-10-23T00:00:00",
+    "datemodified": "2026-10-25T05:57:17",
+    "iso3": "BDI",
+    "source": "GDO",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "BI",
+      "iso3": "BDI",
+      "countryname": "Burundi"
+     },
+     {
+      "iso2": "CD",
+      "iso3": "COD",
+      "countryname": "Democratic Republic of Congo"
+     },
+     {
+      "iso2": "KE",
+      "iso3": "KEN",
+      "countryname": "Kenya"
+     },
+     {
+      "iso2": "RW",
+      "iso3": "RWA",
+      "countryname": "Rwanda"
+     },
+     {
+      "iso2": "TZ",
+      "iso3": "TZA",
+      "countryname": "Tanzania"
+     },
+     {
+      "iso2": "UG",
+      "iso3": "UGA",
+      "countryname": "Uganda"
+     }
+    ],
+    "severitydata": {
+     "severity": 172173.0,
+     "severitytext": "Medium impact for agricultural drought in 172173 km2",
+     "severityunit": "km2"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    93.7797,
+    32.3805,
+    93.7797,
+    32.3805
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     93.7797,
+     32.3805
+    ]
+   },
+   "properties": {
+    "eventtype": "EQ",
+    "eventid": 1573141,
+    "episodeid": 1741837,
+    "eventname": "",
+    "glide": "EQ-2026-000195-CHN",
+    "name": "Earthquake in China",
+    "description": "Earthquake in China",
+    "htmldescription": "Red M 7 Earthquake in China at: 22 Oct 2026 14:33:40.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Red/EQ.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Red/EQ.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=EQ&eventid=1573141&episodeid=1741837",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1573141&episodeid=1741837&eventtype=EQ",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1573141"
+    },
+    "alertlevel": "Red",
+    "alertscore": 3,
+    "episodealertlevel": "Red",
+    "episodealertscore": 2.07132412448536,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "China",
+    "fromdate": "2026-10-22T14:33:40",
+    "todate": "2026-10-22T14:33:40",
+    "datemodified": "2026-10-23T15:02:54",
+    "iso3": "CHN",
+    "source": "NEIC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "CN",
+      "iso3": "CHN",
+      "countryname": "China"
+     }
+    ],
+    "severitydata": {
+     "severity": 7.0,
+     "severitytext": "Magnitude 7M, Depth:18km",
+     "severityunit": "M"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    -110.3,
+    21.5,
+    -110.3,
+    21.5
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -110.3,
+     21.5
+    ]
+   },
+   "properties": {
+    "eventtype": "TC",
+    "eventid": 1001335,
+    "episodeid": 38,
+    "eventname": "SIMON-26",
+    "glide": "",
+    "name": "Tropical Cyclone SIMON-26",
+    "description": "Tropical Cyclone SIMON-26",
+    "htmldescription": "Orange Tropical Cyclone SIMON-26 in M\u00e9xico from: 07 Oct 2026  to: 16 Oct 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/TC.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001335&episodeid=38",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1001335&episodeid=38&eventtype=TC",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001335"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Green",
+    "episodealertscore": 1.0,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "M\u00e9xico",
+    "fromdate": "2026-10-07T15:00:00",
+    "todate": "2026-10-16T21:00:00",
+    "datemodified": "2026-10-17T17:37:52",
+    "iso3": "MEX",
+    "source": "NOAA",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "countryonland": "",
+    "affectedcountries": [],
+    "severitydata": {
+     "severity": 249.9984,
+     "severitytext": "Tropical Depression (maximum wind speed of 250 km/h)",
+     "severityunit": "km/h"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    123.132,
+    10.412,
+    123.132,
+    10.412
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     123.132,
+     10.412
+    ]
+   },
+   "properties": {
+    "eventtype": "VO",
+    "eventid": 1000152,
+    "episodeid": 1,
+    "eventname": "Kanlaon",
+    "glide": "VO-2026-000190-PHL",
+    "name": "Eruption  Kanlaon",
+    "description": "Eruption  Kanlaon",
+    "htmldescription": "Orange Eruption Kanlaon in Philippines at: 10 Oct 2026 05:58.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/VO.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/VO.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=VO&eventid=1000152&episodeid=1",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1000152&episodeid=1&eventtype=VO",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=VO&eventid=1000152"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Orange",
+    "episodealertscore": 1.5,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "Philippines",
+    "fromdate": "2026-10-10T05:58:00",
+    "todate": "2026-10-10T05:58:00",
+    "datemodified": "2026-10-12T06:02:40",
+    "iso3": "PHL",
+    "source": "TOKYO",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "PH",
+      "iso3": "PHL",
+      "countryname": "Philippines"
+     }
+    ],
+    "severitydata": {
+     "severity": 0.0,
+     "severitytext": "",
+     "severityunit": ""
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    -80.769,
+    7.5868,
+    -80.769,
+    7.5868
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -80.769,
+     7.5868
+    ]
+   },
+   "properties": {
+    "eventtype": "EQ",
+    "eventid": 1570339,
+    "episodeid": 1738684,
+    "eventname": "",
+    "glide": "",
+    "name": "Earthquake in Panama",
+    "description": "Earthquake in Panama",
+    "htmldescription": "Orange M 7.7 Earthquake in Panama at: 09 Oct 2026 17:56:06.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/EQ.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/EQ.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=EQ&eventid=1570339&episodeid=1738684",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1570339&episodeid=1738684&eventtype=EQ",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1570339"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Orange",
+    "episodealertscore": 1.42777390096292,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "Panama",
+    "fromdate": "2026-10-09T17:56:06",
+    "todate": "2026-10-09T17:56:06",
+    "datemodified": "2026-10-19T10:10:23",
+    "iso3": "PAN",
+    "source": "NEIC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "PA",
+      "iso3": "PAN",
+      "countryname": "Panama"
+     }
+    ],
+    "severitydata": {
+     "severity": 7.7,
+     "severitytext": "Magnitude 7.7M, Depth:12.647km",
+     "severityunit": "M"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    78.6099,
+    11.3324,
+    78.6099,
+    11.3324
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     78.6099,
+     11.3324
+    ]
+   },
+   "properties": {
+    "eventtype": "FL",
+    "eventid": 1104121,
+    "episodeid": 22,
+    "eventname": "",
+    "glide": "FL-2026-000165-IND",
+    "name": "Flood in India",
+    "description": "Flood in India",
+    "htmldescription": "Orange Flood in India from: 09 Aug 2026 01 to: 07 Oct 2026 01.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/FL.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/FL.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=FL&eventid=1104121&episodeid=22",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1104121&episodeid=22&eventtype=FL",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=FL&eventid=1104121"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Green",
+    "episodealertscore": 0.5,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "India",
+    "fromdate": "2026-08-09T01:00:00",
+    "todate": "2026-10-07T01:00:00",
+    "datemodified": "2026-10-11T06:51:33",
+    "iso3": "IND",
+    "source": "GLOFAS",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "IN",
+      "iso3": "IND",
+      "countryname": "India"
+     }
+    ],
+    "severitydata": {
+     "severity": 0.0,
+     "severitytext": "Magnitude 0 ",
+     "severityunit": ""
+    }
+   }
+  }
+ ],
+ "bbox": null
+}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import textarea, submit, card, badge, fmt %}
+{% from "sentiment/_triage_bits.html" import not_configured %}
+{% block title %}Sentiment analysis{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Sentiment analysis: disasters vs monetary impact</h1>
+<p class="mt-1 max-w-3xl text-sm text-slate-600">Social-media posts collected for seven disasters are scored with a SentiWordNet rule set and aggregated per day and author. The table sets each score against the monetary-impact figure recorded in the 2020 project to ask whether public sentiment tracks monetary loss. That figure's unit and source were not documented in the original work, so read it as a relative number, not as dollars. Scores are computed by <code class="font-mono text-xs">ndp-train</code> and cached; the buttons only read the cache.</p>
+
+<section class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <caption class="sr-only">Disasters with monetary impact and sentiment score</caption>
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th scope="col" class="px-4 py-3">Disaster</th>
+          <th scope="col" class="px-4 py-3 text-right">Monetary impact (2020 figure)</th>
+          <th scope="col" class="px-4 py-3">Sentiment score</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in rows %}
+        <tr>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <img src="{{ url_for('static', path=row.image) }}" alt="" width="56" height="40" loading="lazy" class="h-10 w-14 shrink-0 rounded object-cover bg-slate-100">
+              <span class="font-medium text-slate-900">{{ row.name }}</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ row.monetary_impact }}</td>
+          <td class="px-4 py-3" id="score-{{ row.slug }}">
+            {% if row.score is not none %}
+              {% include "sentiment/_score.html" %}
+            {% else %}
+              <button type="button" data-voice-command="score {{ row.name|lower }}" hx-get="{{ url_for('sentiment_score', slug=row.slug) }}" hx-target="#score-{{ row.slug }}" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+                      class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                Load score
+                <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin"></span>
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="px-4 py-6 text-center text-slate-500">No disasters configured.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  <section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">Impact vs sentiment</h2>
+    <p class="mt-1 text-sm text-slate-500">Each disaster as a point, with a fitted line.</p>
+    {% if plot %}
+      <a href="{{ url_for('static', path=plot) }}" target="_blank" rel="noopener" class="mt-4 block rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <img src="{{ url_for('static', path=plot) }}" alt="Scatter plot of monetary impact against sentiment score" class="w-full object-contain" loading="lazy">
+      </a>
+    {% else %}
+      <p class="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">The plot is generated when the sentiment scores are trained (<code class="font-mono text-xs">uv run ndp-train sentiment</code>, several minutes).</p>
+    {% endif %}
+  </section>
+
+  {% call card('Score your own text', 'Paste a post or a paragraph; the same rule set scores it instantly.') %}
+    <form method="post" action="{{ url_for('sentiment_score_text') }}"
+          hx-post="{{ url_for('sentiment_score_text') }}" hx-target="#text-score" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+          class="space-y-4">
+      {{ textarea('text', 'Text', value=(text if text is defined and text else ''), rows=5, placeholder='Rescue teams worked through the night; families are safe but the bridge is badly damaged.') }}
+      {{ submit('Score text') }}
+    </form>
+    <div id="text-score" class="mt-4" aria-live="polite">
+      {% if score is defined or error is defined %}{% include "sentiment/_text_score.html" %}{% endif %}
+    </div>
+  {% endcall %}
+</div>
+
+<section class="mt-8" aria-labelledby="triage-heading">
+  <h2 id="triage-heading" class="text-lg font-semibold tracking-tight text-slate-900">Triage posts with AI</h2>
+  <p class="mt-1 max-w-3xl text-sm text-slate-600">Claude reads a social-media post in any language and suggests what help is needed, how urgent it is and which place is named. It is a suggestion to speed up a coordinator's reading, not a decision: a person must verify every result before acting, and it must not replace calling emergency services.</p>
+
+  {% if not llm_enabled %}
+  <div class="mt-4" id="triage-off">{{ not_configured() }}</div>
+  {% else %}
+  <div class="mt-4 grid gap-6 lg:grid-cols-2">
+    {% call card('Triage a post', 'Paste one post (up to ' ~ triage_max_chars ~ ' characters), or start from an example.') %}
+      <div class="mb-3 flex flex-wrap gap-2" role="group" aria-label="Example posts">
+        {% for ex in triage_examples %}
+        <button type="button" data-triage-example="{{ ex.text }}"
+                class="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">{{ ex.label }}</button>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('sentiment_triage') }}"
+            hx-post="{{ url_for('sentiment_triage') }}" hx-target="#triage-result" hx-swap="innerHTML"
+            hx-indicator="find .htmx-indicator" hx-disabled-elt="find button[type=submit]"
+            class="space-y-3">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Post</span>
+          <textarea id="triage-text" name="text" rows="5" maxlength="{{ triage_max_chars }}" required
+                    placeholder="Water is rising in Velachery, we are on the first floor with two kids and an elderly parent, please send a boat"
+                    class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">{{ triage_text if triage_text is defined and triage_text else '' }}</textarea>
+          <span class="text-xs text-slate-500"><span id="triage-count" aria-live="off">{{ (triage_text|length) if triage_text is defined and triage_text else 0 }}</span> / {{ triage_max_chars }} characters</span>
+        </label>
+        <button type="submit" data-voice-command="triage post"
+                class="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+          Triage this post
+          <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+        </button>
+      </form>
+      <div id="triage-result" class="mt-4" aria-live="polite">
+        {% if triage is defined or triage_error is defined or triage_state is defined %}{% include "sentiment/_triage.html" %}{% endif %}
+      </div>
+    {% endcall %}
+
+    {% call card('Triage 5 sample posts', 'Picks five random posts from a disaster dataset and triages each one separately. Takes a few seconds per post.') %}
+      <form method="post" action="{{ url_for('sentiment_triage_sample') }}"
+            hx-post="{{ url_for('sentiment_triage_sample') }}" hx-target="#triage-sample-result" hx-swap="innerHTML"
+            hx-indicator="find .htmx-indicator" hx-disabled-elt="find button[type=submit]"
+            class="space-y-3">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Dataset</span>
+          <select name="dataset" class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+            {% for d in sample_datasets %}<option value="{{ d.slug }}" {{ 'selected' if sample_slug is defined and sample_slug == d.slug else '' }}>{{ d.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <button type="submit" data-voice-command="triage sample posts"
+                class="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+          Triage 5 sample posts
+          <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+        </button>
+      </form>
+      <p class="mt-3 text-xs text-slate-500">Sample posts come from public forum threads; text is sent to Claude for triage. Nothing is stored.</p>
+    {% endcall %}
+  </div>
+  <div id="triage-sample-result" class="mt-6" aria-live="polite">
+    {% if sample_rows is defined or sample_error is defined or sample_state is defined %}{% include "sentiment/_triage_sample.html" %}{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var box = document.getElementById("triage-text");
+  if (!box) return;
+  var count = document.getElementById("triage-count");
+  function update() { if (count) count.textContent = box.value.length; }
+  box.addEventListener("input", update);
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest && e.target.closest("[data-triage-example]");
+    if (!chip) return;
+    box.value = chip.getAttribute("data-triage-example");
+    update();
+    box.focus();
+  });
+  update();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{# Swapped into #translations INSIDE the send form: the textareas are submitted with it. #}
+{% if error is defined and error %}
+  <div role="alert" class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><strong class="font-semibold">Could not translate.</strong> {{ error }}</div>
+{% elif translations is defined %}
+  {% set _ok = translations|selectattr('ok')|list %}
+  <div data-speak="{{ _ok|length }} of {{ translations|length }} translations are ready. Read and edit each one before sending.">
+    <p class="text-sm text-slate-700">{{ _ok|length }} of {{ translations|length }} drafted. <strong>Read and edit each one before sending.</strong> They are added after the English text under a language heading; empty a box to leave that language out. Previewing again replaces your edits.</p>
+    {% for t in translations %}
+      {% if t.ok %}
+      <label class="mt-3 block">
+        <span class="text-sm font-medium text-slate-700">{{ t.name }}</span>
+        <textarea name="translation_{{ t.code }}" lang="{{ t.code }}" {% if t.rtl %}dir="rtl"{% endif %}
+                  rows="{{ [[t.text.count('\n') + 5, 7]|max, 14]|min }}"
+                  class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">{{ t.text }}</textarea>
+      </label>
+      {% else %}
+      <p class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status"><strong class="font-semibold">{{ t.name }}</strong> was not drafted. {{ t.error }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

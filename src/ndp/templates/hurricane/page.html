@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import field, submit, card %}
+{% block title %}Hurricane prediction{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+<h1 class="text-2xl font-semibold tracking-tight text-slate-900">Hurricane prediction</h1>
+<p class="mt-1 max-w-2xl text-sm text-slate-600">Estimate the maximum sustained wind of a tropical cyclone at a given date and position, and its Saffir–Simpson category, from the NOAA HURDAT2 best-track archives for the Atlantic and eastern Pacific basins.</p>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Inputs', 'Date and storm centre position in decimal degrees (west longitudes are negative).') %}
+      <form method="post" action="{{ url_for('hurricane_predict') }}"
+            hx-post="{{ url_for('hurricane_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Date</span>
+          <input name="date" type="date" required value="{{ v.get('date', '') }}" data-default-today
+                 class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+        </label>
+        <div class="grid grid-cols-2 gap-4">
+          {{ field('lat', 'Latitude', value=v.get('lat', 25.0), min=-90, max=90) }}
+          {{ field('lon', 'Longitude', value=v.get('lon', -80.0), min=-180, max=180) }}
+        </div>
+        {{ submit('Estimate wind') }}
+      </form>
+    {% endcall %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "hurricane/_result.html" %}{% endif %}
+    </div>
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+    {% include "partials/_model_card.html" %}
+    {% include "partials/_plots.html" %}
+  </div>
+</div>
+{% endblock %}

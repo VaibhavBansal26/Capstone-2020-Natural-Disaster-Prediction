@@ -1,0 +1,21 @@
+{% from "partials/_form_bits.html" import error_box, fmt %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+{% elif centres is defined %}
+  {% set _items = [{'lat': origin.lat, 'lon': origin.lon, 'title': origin.name, 'color': '#059669', 'radius': 9, 'lines': ['You are here']}] %}
+  {% for c in centres %}
+    {% set _ = _items.append({'lat': c.lat, 'lon': c.lon, 'title': c.name, 'color': '#be123c', 'lines': [c.city or '', c.address or '', fmt(c.distance_km, 1) ~ ' km away']}) %}
+  {% endfor %}
+  <p class="text-sm text-slate-600">Nearest to <strong>{{ origin.name }}</strong>:</p>
+  <script type="application/json" id="centres-markers">{{ _items|tojson }}</script>
+  <div id="centres-map" class="mt-3 h-64 w-full rounded-lg bg-slate-100" role="application" aria-label="Map of the nearest test centres"
+       data-ndp-map data-lat="{{ origin.lat }}" data-lon="{{ origin.lon }}" data-zoom="8" data-markers-src="#centres-markers"></div>
+  <ol class="mt-3 divide-y divide-slate-100 text-sm" data-speak="Nearest test centre: {{ centres[0].name if centres else 'none found' }}, {{ fmt(centres[0].distance_km, 0) if centres else '' }} kilometres away.">
+    {% for c in centres %}
+    <li class="py-2">
+      <p class="font-medium text-slate-900">{{ c.name }} <span class="ml-1 text-xs font-normal text-slate-500">{{ fmt(c.distance_km, 1) }} km</span></p>
+      <p class="text-slate-600 break-words">{{ c.address }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+{% endif %}

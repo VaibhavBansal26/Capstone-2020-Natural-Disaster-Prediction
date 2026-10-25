@@ -1,0 +1,13 @@
+*.pyc
+.claude
+.env
+.git
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+data/raw
+models
+node_modules
+src/ndp/static/generated
+state

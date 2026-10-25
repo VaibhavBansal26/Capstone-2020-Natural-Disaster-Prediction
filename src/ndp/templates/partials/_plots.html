@@ -1,0 +1,23 @@
+{#
+  Plots gallery. Context: `plots` list of (title, static_path) tuples, where
+  static_path is relative to /static (e.g. "generated/flood/f1.png").
+  Optional: `plots_title`.
+#}
+<section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+  <h2 class="text-base font-semibold text-slate-900">{{ plots_title if plots_title is defined and plots_title else 'Training plots' }}</h2>
+  <p class="mt-1 text-sm text-slate-500">Generated once by <code class="font-mono text-xs">ndp-train</code> from the historical dataset; nothing is drawn per request.</p>
+  {% if plots %}
+    <ul class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {% for title, path in plots %}
+        <li class="rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+          <a href="{{ url_for('static', path=path) }}" target="_blank" rel="noopener" class="block">
+            <img src="{{ url_for('static', path=path) }}" alt="{{ title }}" loading="lazy" class="w-full h-48 object-contain bg-white">
+          </a>
+          <p class="px-3 py-2 text-sm text-slate-700">{{ title }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">No plots yet. They appear here after <code class="font-mono text-xs">uv run ndp-train</code> has run.</p>
+  {% endif %}
+</section>

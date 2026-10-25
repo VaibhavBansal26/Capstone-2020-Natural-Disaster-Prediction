@@ -1,0 +1,45 @@
+# Render blueprint: https://render.com/docs/blueprint-spec
+# One Docker web service with a persistent disk so datasets and trained models survive deploys.
+# First boot downloads the datasets and trains the models (a few minutes); later boots reuse the disk.
+services:
+  - type: web
+    name: natural-disaster-prediction
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    plan: starter            # about 480 MB resident with all models loaded; 1 GB leaves headroom
+    healthCheckPath: /healthz
+    disk:
+      name: ndp-data
+      mountPath: /var/data
+      sizeGB: 2
+    envVars:
+      - key: NDP_DATA_DIR
+        value: /var/data/raw
+      - key: NDP_MODELS_DIR
+        value: /var/data/models
+      - key: NDP_GENERATED_DIR
+        value: /var/data/plots
+      - key: NDP_STATE_DIR
+        value: /var/data/state
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"             # trust Render's proxy so client IPs are real
+      - key: NDP_ENABLE_COVID
+        value: "true"
+      # Optional features: leave unset to show "not configured" in the UI.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: NDP_ANTHROPIC_MODEL
+        value: claude-sonnet-5-5   # cheaper than the default model for a public assistant
+      - key: NDP_OPENWEATHER_API_KEY
+        sync: false
+      - key: NDP_SMTP_USER
+        sync: false
+      - key: NDP_SMTP_PASSWORD
+        sync: false
+      - key: NDP_ALERT_TO_EMAIL
+        sync: false
+      - key: NDP_ALERTS_DRY_RUN
+        value: "true"            # flip to false deliberately once contacts are configured
+      - key: NDP_WATCH_QUAKES
+        value: "false"

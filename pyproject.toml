@@ -1,0 +1,63 @@
+[project]
+name = "natural-disaster-prediction"
+version = "2.0.0"
+description = "Natural disaster risk estimation and alerting (VIT capstone 2020, modernised)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Vaibhav Bansal" }]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+    "matplotlib>=3.9",
+    "folium>=0.17",
+    "nltk>=3.9",
+    "anthropic>=2.3.0",
+]
+
+[project.optional-dependencies]
+alerts = ["twilio>=9.0"]
+
+[project.scripts]
+ndp-fetch-data = "ndp.data:main"
+ndp-train = "ndp.ml.train:main"
+ndp-serve = "ndp.main:serve"
+ndp-fetch-guidance = "ndp.guidance:main"
+ndp-eval = "ndp.evals:main"
+ndp-report = "ndp.report:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ndp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# The report is mostly long prose strings and wide table rows.
+"src/ndp/report.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

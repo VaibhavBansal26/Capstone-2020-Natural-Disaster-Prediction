@@ -1,0 +1,31 @@
+{% from "partials/_form_bits.html" import badge, metric, error_box, inputs_list, fmt, bar %}
+{% set _labels = {'date': 'Date', 'lat': 'Latitude', 'lon': 'Longitude'} %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+{% elif result is defined and result %}
+  {% set cat = result.category %}
+  {% set tone = 'danger' if result.is_hurricane else ('warn' if cat == 'Tropical storm' else 'ok') %}
+  <div class="rounded-xl border {{ 'border-rose-300 bg-rose-50/40' if result.is_hurricane else 'border-slate-200 bg-white' }} p-5"
+       data-speak="Estimated maximum wind {{ '%.0f'|format(result.max_wind_kt) }} knots, {% if result.is_hurricane %}a {{ cat|lower }} hurricane{% else %}a {{ cat|lower }}{% endif %}.">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Estimated maximum sustained wind</h3>
+      <div class="flex items-center gap-2">
+        {{ badge(cat, tone) }}
+        {% if result.is_hurricane %}{{ badge('Hurricane strength', 'danger') }}{% endif %}
+      </div>
+    </div>
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {{ metric('Max wind', fmt(result.max_wind_kt), 'kt') }}
+      {{ metric('≈ km/h', fmt(result.max_wind_kt * 1.852)) }}
+      {{ metric('Saffir–Simpson', cat) }}
+    </div>
+    <div class="mt-4">
+      <p class="text-xs text-slate-500 mb-1">Wind relative to the Category 5 threshold (137 kt)</p>
+      {{ bar(result.max_wind_kt / 137 * 100, 'bg-rose-600' if result.is_hurricane else 'bg-brand-600', fmt(result.max_wind_kt) ~ ' kt') }}
+    </div>
+    <p class="mt-4 text-sm text-slate-600">Bands in knots: depression &lt;34, tropical storm 34–63, Category 1 64–82, Category 2 83–95, Category 3 96–112, Category 4 113–136, Category 5 ≥137.</p>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Linear regression over the NOAA HURDAT2 Atlantic and Pacific best-track archives (date, latitude, longitude). Not a forecast.</p>
+  </div>
+{% endif %}

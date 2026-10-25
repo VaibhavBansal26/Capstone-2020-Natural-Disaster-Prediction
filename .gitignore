@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Local configuration and secrets
+.env
+*.local
+
+# Raw datasets are fetched with `uv run ndp-fetch-data`; see data/README.md
+data/raw/
+# Trained model artifacts are produced by `uv run ndp-train`
+models/
+# Plots generated at train time
+src/ndp/static/generated/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Runtime state (watcher dedupe etc.)
+state/
+
+# Local tooling
+.claude/

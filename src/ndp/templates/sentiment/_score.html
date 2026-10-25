@@ -1,0 +1,13 @@
+{% from "partials/_form_bits.html" import badge, fmt %}
+{% if error is defined and error %}
+  <span class="text-xs text-rose-700">{{ error }}</span>
+{% elif row is defined and row and row.score is not none %}
+  {% set tone = 'ok' if row.score > 0 else ('danger' if row.score < 0 else 'muted') %}
+  <span class="font-semibold tabular-nums {{ 'text-emerald-700' if row.score > 0 else ('text-rose-700' if row.score < 0 else 'text-slate-700') }}"
+        data-speak="{{ row.name }} sentiment score {{ '%.2f'|format(row.score) }}, {{ 'positive' if row.score > 0 else ('negative' if row.score < 0 else 'neutral') }}.">{{ fmt(row.score) }}</span>
+  {{ badge('positive' if row.score > 0 else ('negative' if row.score < 0 else 'neutral'), tone) }}
+  {% if row.n_posts is defined and row.n_posts %}<span class="block text-xs text-slate-500">{{ '{:,}'.format(row.n_posts|int) }} posts</span>{% endif %}
+{% else %}
+  {{ badge('needs training', 'warn') }}
+  <span class="block text-xs text-slate-500">Run <code class="font-mono">ndp-train sentiment</code></span>
+{% endif %}

@@ -1,0 +1,295 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "bbox": [
+    -178.8056,
+    52.1923,
+    -178.8056,
+    52.1923
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -178.8056,
+     52.1923
+    ]
+   },
+   "properties": {
+    "eventtype": "EQ",
+    "eventid": 1573820,
+    "episodeid": 1742640,
+    "eventname": "",
+    "glide": "",
+    "name": "Earthquake in Andreanof Islands, Aleutian Is.",
+    "description": "Earthquake in Andreanof Islands, Aleutian Is.",
+    "htmldescription": "Green M 4.6 Earthquake in Andreanof Islands, Aleutian Is. at: 25 Oct 2026 17:49:58.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=EQ&eventid=1573820&episodeid=1742640",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1573820&episodeid=1742640&eventtype=EQ",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1573820"
+    },
+    "alertlevel": "Green",
+    "alertscore": 1,
+    "episodealertlevel": "Green",
+    "episodealertscore": 0.0,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "Andreanof Islands, Aleutian Is.",
+    "fromdate": "2026-10-25T17:49:58",
+    "todate": "2026-10-25T17:49:58",
+    "datemodified": "2026-10-25T18:24:47",
+    "iso3": "",
+    "source": "NEIC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [],
+    "severitydata": {
+     "severity": 4.6,
+     "severitytext": "Magnitude 4.6M, Depth:152.896km",
+     "severityunit": "M"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    71.1025,
+    36.274,
+    71.1025,
+    36.274
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     71.1025,
+     36.274
+    ]
+   },
+   "properties": {
+    "eventtype": "EQ",
+    "eventid": 1573818,
+    "episodeid": 1742638,
+    "eventname": "",
+    "glide": "",
+    "name": "Earthquake in Afghanistan",
+    "description": "Earthquake in Afghanistan",
+    "htmldescription": "Green M 5.2 Earthquake in Afghanistan at: 25 Oct 2026 17:44:23.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=EQ&eventid=1573818&episodeid=1742638",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1573818&episodeid=1742638&eventtype=EQ",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1573818"
+    },
+    "alertlevel": "Green",
+    "alertscore": 1,
+    "episodealertlevel": "Green",
+    "episodealertscore": 0.0,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "Afghanistan",
+    "fromdate": "2026-10-25T17:44:23",
+    "todate": "2026-10-25T17:44:23",
+    "datemodified": "2026-10-25T18:25:25",
+    "iso3": "AFG",
+    "source": "NEIC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "AF",
+      "iso3": "AFG",
+      "countryname": "Afghanistan"
+     }
+    ],
+    "severitydata": {
+     "severity": 5.2,
+     "severitytext": "Magnitude 5.2M, Depth:110.025km",
+     "severityunit": "M"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    36.5467,
+    -10.1566,
+    36.5467,
+    -10.1566
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     36.5467,
+     -10.1566
+    ]
+   },
+   "properties": {
+    "eventtype": "WF",
+    "eventid": 1033187,
+    "episodeid": 1,
+    "eventname": "",
+    "glide": "",
+    "name": "Forest fires in Tanzania",
+    "description": "Forest fires in Tanzania",
+    "htmldescription": "Green Forest fires in Tanzania from: 19 Oct 2026 to: 25 Oct 2026.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/WF.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Green/WF.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=WF&eventid=1033187&episodeid=1",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1033187&episodeid=1&eventtype=WF",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=WF&eventid=1033187"
+    },
+    "alertlevel": "Green",
+    "alertscore": 1,
+    "episodealertlevel": "Green",
+    "episodealertscore": 0.5,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "Tanzania",
+    "fromdate": "2026-10-19T00:00:00",
+    "todate": "2026-10-25T00:00:00",
+    "datemodified": "2026-10-25T16:18:48",
+    "iso3": "TZA",
+    "source": "GWIS",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "TZ",
+      "iso3": "TZA",
+      "countryname": "Tanzania"
+     }
+    ],
+    "severitydata": {
+     "severity": 5073.0,
+     "severitytext": "Green impact for forestfire in 5073 ha",
+     "severityunit": "ha"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    134.2235,
+    -12.5001,
+    134.2235,
+    -12.5001
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     134.2235,
+     -12.5001
+    ]
+   },
+   "properties": {
+    "eventtype": "WF",
+    "eventid": 1033186,
+    "episodeid": 1,
+    "eventname": "",
+    "glide": "",
+    "name": "Forest fires in Australia",
+    "description": "Forest fires in Australia",
+    "htmldescription": "Green Forest fires in Australia from: 18 Oct 2026 to: 25 Oct 2026.",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/WF.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Green/WF.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=WF&eventid=1033186&episodeid=1",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1033186&episodeid=1&eventtype=WF",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=WF&eventid=1033186"
+    },
+    "alertlevel": "Green",
+    "alertscore": 1,
+    "episodealertlevel": "Green",
+    "episodealertscore": 0.5,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "Australia",
+    "fromdate": "2026-10-18T00:00:00",
+    "todate": "2026-10-25T00:00:00",
+    "datemodified": "2026-10-25T16:27:09",
+    "iso3": "AUS",
+    "source": "GWIS",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "affectedcountries": [
+     {
+      "iso2": "AU",
+      "iso3": "AUS",
+      "countryname": "Australia"
+     }
+    ],
+    "severitydata": {
+     "severity": 5691.0,
+     "severitytext": "Green impact for forestfire in 5691 ha",
+     "severityunit": "ha"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    -179.3,
+    14.6,
+    -179.3,
+    14.6
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -179.3,
+     14.6
+    ]
+   },
+   "properties": {
+    "eventtype": "TC",
+    "eventid": 1001344,
+    "episodeid": 1,
+    "eventname": "THREE-C-26",
+    "glide": "",
+    "name": "Tropical Cyclone THREE-C-26",
+    "description": "Tropical Cyclone THREE-C-26",
+    "htmldescription": "Green Tropical Cyclone THREE-C-26 off-shore from: 25 Oct 2026  to: 25 Oct 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001344&episodeid=1",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1001344&episodeid=1&eventtype=TC",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001344"
+    },
+    "alertlevel": "Green",
+    "alertscore": 1,
+    "episodealertlevel": "Green",
+    "episodealertscore": 1.0,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "",
+    "fromdate": "2026-10-25T15:00:00",
+    "todate": "2026-10-25T15:00:00",
+    "datemodified": "2026-10-25T15:25:31",
+    "iso3": "",
+    "source": "NOAA",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "countryonland": "",
+    "affectedcountries": [],
+    "severitydata": {
+     "severity": 64.8144,
+     "severitytext": "Tropical Depression (maximum wind speed of 65 km/h)",
+     "severityunit": "km/h"
+    }
+   }
+  }
+ ],
+ "bbox": null
+}

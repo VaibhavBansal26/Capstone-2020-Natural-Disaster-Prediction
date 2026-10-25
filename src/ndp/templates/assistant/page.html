@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import badge %}
+{% block title %}Assistant{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Disaster assistant</h1>
+      <p class="mt-1 max-w-2xl text-sm text-slate-600">Ask about recent earthquakes, the historical hazard around a place, weather outlooks, nearby help and what to do to stay safe. It looks things up with read-only tools and cites its sources.</p>
+    </div>
+    {{ badge('Claude: ' ~ ('ready' if configured else 'not configured'), 'ok' if configured else 'muted') }}
+  </div>
+
+  {% if not configured %}
+  <section class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-not-configured>
+    <h2 class="text-base font-semibold">The assistant is not enabled on this server</h2>
+    <p class="mt-1">It needs an Anthropic API key. Everything else in the app works without one.</p>
+    <ol class="mt-3 list-decimal space-y-2 pl-5">
+      <li>Create a key in the <a class="underline" href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">Anthropic Console</a>.</li>
+      <li>Make it available to the server, either in the shell or in a <code class="font-mono">.env</code> file in the project root:
+        <pre class="mt-1 overflow-x-auto rounded-md bg-white/70 p-2 font-mono text-xs">ANTHROPIC_API_KEY=your-key-here</pre>
+        <span class="text-xs">(<code class="font-mono">NDP_ANTHROPIC_API_KEY</code> works too.)</span></li>
+      <li>Restart the server: <code class="font-mono">uv run ndp-serve</code>.</li>
+    </ol>
+    <p class="mt-3 text-xs">Optional: <code class="font-mono">NDP_ANTHROPIC_MODEL</code> (default <code class="font-mono">claude-opus-5-5</code>; a smaller model such as <code class="font-mono">claude-sonnet-5-5</code> costs less) and <code class="font-mono">NDP_ASSISTANT_MAX_TOOL_ROUNDS</code> (default 6).</p>
+  </section>
+  {% endif %}
+
+  <section class="mt-6 rounded-xl border border-slate-200 bg-slate-100/60 p-3 sm:p-4" aria-label="Conversation">
+    <div id="transcript" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation with the assistant"
+         class="max-h-[60vh] min-h-[10rem] space-y-4 overflow-y-auto overflow-x-hidden pr-1">
+      {% if not turns and not pending_question %}{% include "assistant/_welcome.html" %}{% endif %}
+      {% for question, turn in turns %}{% include "assistant/_turn.html" %}{% endfor %}
+      {% if pending_question %}{% with question=pending_question, error=pending_error %}{% include "assistant/_turn.html" %}{% endwith %}{% endif %}
+    </div>
+    <p id="thinking" class="htmx-indicator mt-3 text-xs text-slate-500" role="status">Looking things up&hellip;</p>
+  </section>
+
+  <div class="mt-4">
+    <h2 class="text-xs font-medium uppercase tracking-wide text-slate-500">Try asking</h2>
+    <ul class="mt-2 flex flex-wrap gap-2">
+      {% for example in examples %}
+      <li>
+        {% if configured %}
+        <button type="button" data-ask="{{ example }}"
+                class="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-left text-xs text-slate-700 hover:border-brand-600 hover:text-brand-700">{{ example }}</button>
+        {% else %}
+        <span aria-disabled="true" class="inline-block cursor-not-allowed rounded-full border border-dashed border-slate-300 bg-white/60 px-3 py-1.5 text-xs text-slate-400">{{ example }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <form id="chat-form" method="post" action="{{ url_for('assistant_ask') }}"
+        hx-post="{{ url_for('assistant_ask') }}" hx-target="#transcript" hx-swap="beforeend"
+        hx-indicator="#thinking" hx-disabled-elt="#send"
+        hx-on::after-request="if (event.detail.successful) { this.reset(); }"
+        class="mt-4 space-y-2">
+    <label for="msg" class="sr-only">Your question</label>
+    <textarea id="msg" name="message" rows="2" required maxlength="{{ max_chars }}" {% if not configured %}disabled{% endif %}
+              placeholder="{{ 'Ask about a hazard, a place or what to do&hellip;'|safe if configured else 'Enable the assistant to ask questions' }}"
+              class="block w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600 disabled:cursor-not-allowed disabled:bg-slate-100"></textarea>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="send" type="submit" {% if not configured %}disabled{% endif %}
+              class="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300">Ask</button>
+      <span class="text-xs text-slate-500">Enter sends, Shift+Enter adds a line. Up to {{ max_chars }} characters.</span>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('assistant_reset') }}"
+        hx-post="{{ url_for('assistant_reset') }}" hx-target="#transcript" hx-swap="innerHTML" class="mt-2">
+    <button type="submit" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Reset conversation</button>
+  </form>
+
+  <p class="mt-6 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-600">
+    Answers are generated by an AI model from public statistical and model data (USGS, GDACS, Open-Meteo, OpenStreetMap, CDC, National Weather Service). They can be wrong, are not official warnings, and earthquakes cannot be predicted. In an emergency call your local emergency number. Your messages are sent to Anthropic's Claude API to write the reply; the chat is kept in server memory for this browser session only.
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var transcript = document.getElementById('transcript');
+  var form = document.getElementById('chat-form');
+  var input = document.getElementById('msg');
+  if (!transcript || !form || !input) return;
+
+  function toBottom() { transcript.scrollTop = transcript.scrollHeight; }
+  toBottom();
+
+  /* htmx does not swap 4xx/5xx by default; the friendly error bubbles must be shown. */
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    var cfg = e.detail.requestConfig || {};
+    var path = cfg.path || (e.detail.pathInfo && e.detail.pathInfo.requestPath) || '';
+    if (path.indexOf('/assistant/ask') !== -1 && e.detail.xhr && e.detail.xhr.status >= 400) {
+      e.detail.shouldSwap = true;
+      e.detail.isError = false;
+    }
+  });
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.detail.target === transcript) { toBottom(); if (!input.disabled) input.focus({ preventScroll: true }); }
+  });
+
+  document.querySelectorAll('[data-ask]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      input.value = chip.getAttribute('data-ask');
+      form.requestSubmit();
+    });
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      if (input.value.trim()) form.requestSubmit();
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% from "partials/_form_bits.html" import badge, error_box, inputs_list, fmt, bar %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+  {{ inputs_list(inputs if inputs is defined else {}) }}
+{% elif results is defined and results %}
+  {% set _unit = unit if unit is defined else '' %}
+  {# The baseline always predicts the training mean; it is shown in the table but is never "best". #}
+  {% set ns = namespace(models=[], baseline=none) %}
+  {% for r in results %}{% if r.name.startswith('Baseline') %}{% set ns.baseline = r %}{% else %}{% set ns.models = ns.models + [r] %}{% endif %}{% endfor %}
+  {% set _models = ns.models %}
+  {% set baseline = ns.baseline %}
+  {% set best = (_models or results)|max(attribute='accuracy_pct') %}
+  {% set lowest_rmse = (_models or results)|min(attribute='rmse') %}
+  {# One-line verdict: does any model beat "always predict the average"? Within 2 % counts as no. #}
+  {% if baseline and baseline.rmse and _models %}
+    {% set _gain = (1 - lowest_rmse.rmse / baseline.rmse) * 100 %}
+    {% if lowest_rmse.rmse >= baseline.rmse * 0.98 %}
+      {% set verdict = 'No model beats the baseline: the best error (RMSE ' ~ ('%.2f'|format(lowest_rmse.rmse)) ~ ') is within 2% of simply predicting the average (' ~ ('%.2f'|format(baseline.rmse)) ~ ').' %}
+      {% set verdict_tone = 'warn' %}
+    {% else %}
+      {% set verdict = lowest_rmse.name ~ ' has the lowest error, ' ~ ('%.0f'|format(_gain)) ~ '% below the baseline of predicting the average (RMSE ' ~ ('%.2f'|format(lowest_rmse.rmse)) ~ ' vs ' ~ ('%.2f'|format(baseline.rmse)) ~ ').' %}
+      {% set verdict_tone = 'ok' %}
+    {% endif %}
+  {% endif %}
+  {% set _labels = {} %}
+  {% if hazard is defined and hazard %}{% for f in hazard.input_fields %}{% set _ = _labels.update({f.name: f.label}) %}{% endfor %}{% endif %}
+  {% set _unit_words = {'m': 'metres', 'kt': 'knots', 'magnitude': 'magnitude'} %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5"
+       data-speak="{% if hazard is defined and hazard %}{{ hazard.title }}: {% endif %}best model is {{ best.name }}, predicting {{ '%.2f'|format(best.prediction) }}{% if _unit %} {{ _unit_words.get(_unit, _unit) }}{% endif %}, with {{ '%.0f'|format(best.accuracy_pct) }} percent accuracy.{% if verdict is defined and verdict %} {{ verdict }}{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-slate-900">Four models and a baseline, one input{% if hazard is defined and hazard %} · {{ hazard.title }}{% endif %}</h3>
+      {{ badge('Best: ' ~ best.name, 'ok') }}
+    </div>
+    {% if verdict is defined and verdict %}
+    <p class="mt-3 rounded-lg border px-3 py-2 text-sm {{ 'border-amber-200 bg-amber-50 text-amber-900' if verdict_tone == 'warn' else 'border-emerald-200 bg-emerald-50 text-emerald-900' }}" data-compare-verdict>{{ verdict }}</p>
+    {% endif %}
+    <div class="mt-4 -mx-5 sm:mx-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th scope="col" class="px-3 py-2">Model</th>
+            <th scope="col" class="px-3 py-2 text-right">Prediction{% if _unit %} ({{ _unit }}){% endif %}</th>
+            <th scope="col" class="px-3 py-2 text-right">Accuracy %</th>
+            <th scope="col" class="px-3 py-2 text-right">R²</th>
+            <th scope="col" class="px-3 py-2 text-right">RMSE</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for m in results %}
+          {% set _is_base = m.name.startswith('Baseline') %}
+          <tr class="{{ 'bg-emerald-50/60' if m.name == best.name else ('bg-slate-50 text-slate-500 italic' if _is_base else '') }}"{% if _is_base %} data-baseline-row{% endif %}>
+            <td class="px-3 py-2 font-medium {{ 'text-slate-600' if _is_base else 'text-slate-900' }}">{{ m.name }}{% if _is_base %} <span class="not-italic text-xs font-normal text-slate-500">(reference)</span>{% endif %}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.prediction) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.accuracy_pct) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.r2, 3) }}</td>
+            <td class="px-3 py-2 text-right tabular-nums">{{ fmt(m.rmse) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-5">
+      <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Accuracy (within 10 % of the target range)</p>
+      <ul class="space-y-2 text-sm">
+        {% for m in results %}
+        <li class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] items-center gap-3">
+          <span class="truncate text-slate-700">{{ m.name }}</span>
+          {{ bar(m.accuracy_pct, 'bg-emerald-600' if m.name == best.name else ('bg-slate-400' if m.name.startswith('Baseline') else 'bg-brand-600'), m.name ~ ' ' ~ fmt(m.accuracy_pct, 1) ~ '%') }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {{ inputs_list(inputs if inputs is defined else {}, _labels) }}
+    <p class="mt-4 text-xs text-slate-500">Accuracy counts a test row as correct when the error is within 10 % of the largest target value; R² and RMSE are on the same held-out split. The baseline always predicts the average of the training data: a model is only useful if it beats it. Nothing is trained per request.</p>
+  </div>
+{% endif %}

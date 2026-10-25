@@ -1,0 +1,36 @@
+{% from "partials/_form_bits.html" import badge, error_box, fmt %}
+{% if error is defined and error %}
+  {{ error_box(error) }}
+{% elif events %}
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for e in events %}
+    <li class="py-3" data-speak="{{ e.place }}: magnitude {{ fmt(e.magnitude, 1) }}, depth {{ fmt(e.depth_km, 0) }} kilometres.">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-medium text-slate-900">
+            {{ badge('M ' ~ fmt(e.magnitude, 1), 'danger' if e.magnitude >= 6 else ('warn' if e.magnitude >= 5.5 else 'info')) }}
+            <span class="ml-1">{{ e.place }}</span>
+          </p>
+          <p class="mt-1 text-xs text-slate-500">{{ e.time.strftime('%Y-%m-%d %H:%M') }} UTC · depth {{ fmt(e.depth_km, 0) }} km{% if e.url %} · <a class="underline" href="{{ e.url }}" rel="noopener">USGS</a>{% endif %}</p>
+        </div>
+        <form method="post" action="{{ url_for('alerts_nearby') }}"
+              hx-post="{{ url_for('alerts_nearby') }}" hx-target="#event-{{ loop.index }}" hx-swap="innerHTML" hx-indicator="find .htmx-indicator">
+          <input type="hidden" name="lat" value="{{ e.lat }}">
+          <input type="hidden" name="lon" value="{{ e.lon }}">
+          <input type="hidden" name="depth" value="{{ e.depth_km }}">
+          <input type="hidden" name="date" value="{{ e.time.strftime('%Y-%m-%d') }}">
+          <input type="hidden" name="magnitude" value="{{ e.magnitude }}">
+          <input type="hidden" name="source" value="usgs">
+          <button type="submit" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Nearby help
+            <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-current/40 border-t-current animate-spin"></span>
+          </button>
+        </form>
+      </div>
+      <div id="event-{{ loop.index }}" class="mt-3" aria-live="polite"></div>
+    </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="text-sm text-slate-500">No earthquakes of magnitude 4.5 or more were reported this week.</p>
+{% endif %}

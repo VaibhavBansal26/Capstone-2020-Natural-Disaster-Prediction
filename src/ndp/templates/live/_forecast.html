@@ -1,0 +1,70 @@
+{% from "partials/_form_bits.html" import metric, fmt %}
+
+{% macro chart(c, label, unit, bar, over_bar='bg-amber-500', empty_text='') -%}
+<figure class="min-w-0">
+  <figcaption class="text-xs uppercase tracking-wide text-slate-500">{{ label }} <span class="normal-case tracking-normal">(tallest bar {{ c.scale|round(1) }} {{ unit }})</span></figcaption>
+  <div class="mt-2 flex gap-1.5" role="img" aria-label="{{ label }} by hour for the next {{ c.count }} hours">
+    {% for g in c.groups %}
+    <div class="flex min-w-0 flex-col" style="flex: {{ g.bars|length }} 1 0%">
+      <div class="flex h-24 items-end gap-px border-b border-slate-300">
+        {% for b in g.bars %}
+        <div class="min-w-0 flex-1 rounded-t-sm {{ over_bar if b.over else bar }}" style="height: {{ '%.1f'|format(b.pct) }}%" title="{{ b.tip }} {{ unit }}"></div>
+        {% endfor %}
+      </div>
+      <span class="mt-1 truncate text-[10px] text-slate-500">{{ g.label if g.bars|length >= 8 else '' }}&nbsp;</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if c.empty and empty_text %}<p class="mt-1 text-xs text-slate-500">{{ empty_text }}</p>{% endif %}
+</figure>
+{%- endmacro %}
+
+{% if error is defined and error %}
+  {% set title = 'Could not get the outlook.' %}
+  {% include "live/_error.html" %}
+{% else %}
+<section class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm" data-speak="{{ speak }}">
+  <h3 class="break-words text-base font-semibold text-slate-900">Outlook for {{ place.name }}</h3>
+  <p class="mt-0.5 text-xs text-slate-500">{{ fmt(fc.lat, 3) }}, {{ fmt(fc.lon, 3) }} · times are local ({{ fc.timezone }}) · next {{ fc.hours|length }} hours from {{ fc.hours[0].time.strftime('%a %H:%M') }}</p>
+
+  <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    {{ metric('Wettest 24 h', fmt(fc.precip_24h_max_mm, 1), 'mm') }}
+    {{ metric('Rain, 72 h total', fmt(fc.precip_72h_total_mm, 1), 'mm') }}
+    {{ metric('Peak gust', fmt(fc.max_gust_kmh, 0) if fc.max_gust_kmh is not none else '–', 'km/h') }}
+    {{ metric('Temperature', (fmt(fc.temp_min_c, 0) ~ ' to ' ~ fmt(fc.temp_max_c, 0)) if fc.temp_min_c is not none else '–', '°C') }}
+  </div>
+
+  <ul class="mt-4 space-y-2" aria-label="Advisories from the forecast">
+    {% for a in fc.advisories %}
+    {% set tone = {'warning': 'border-rose-200 bg-rose-50 text-rose-900', 'watch': 'border-amber-200 bg-amber-50 text-amber-900', 'info': 'border-slate-200 bg-slate-50 text-slate-700'}[a.level] %}
+    <li class="rounded-lg border p-3 text-sm {{ tone }}"><strong class="font-semibold capitalize">{{ a.level }}:</strong> {{ a.text }}</li>
+    {% endfor %}
+  </ul>
+
+  <div class="mt-5 space-y-5">
+    {{ chart(rain_chart, 'Rain per hour', 'mm', 'bg-brand-600', empty_text='The model forecasts no rain in this period.') }}
+    {{ chart(gust_chart, 'Wind gusts per hour', 'km/h', 'bg-slate-400') }}
+    <p class="-mt-3 text-xs text-slate-500"><span class="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-amber-500 align-middle"></span>gusts of {{ gust_threshold|int }} km/h or more</p>
+  </div>
+
+  <table class="mt-5 w-full text-left text-sm">
+    <caption class="sr-only">Daily summary</caption>
+    <thead class="text-xs uppercase tracking-wide text-slate-500">
+      <tr><th class="py-1 pr-2 font-medium" scope="col">Day</th><th class="py-1 pr-2 font-medium" scope="col">Rain</th><th class="py-1 pr-2 font-medium" scope="col">Gust</th><th class="py-1 font-medium" scope="col">Temp</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for d in fc.daily %}
+      <tr>
+        <td class="py-1.5 pr-2">{{ d.day.strftime('%a %d %b') }}</td>
+        <td class="py-1.5 pr-2 tabular-nums">{{ fmt(d.precip_mm, 1) }} mm</td>
+        <td class="py-1.5 pr-2 tabular-nums">{{ fmt(d.max_gust_kmh, 0) if d.max_gust_kmh is not none else '–' }} km/h</td>
+        <td class="py-1.5 tabular-nums">{{ (fmt(d.temp_min_c, 0) ~ ' to ' ~ fmt(d.temp_max_c, 0)) if d.temp_min_c is not none else '–' }}°C</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="mt-1 text-xs text-slate-500">The first and last days are partial.</p>
+
+  <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">{{ fc.disclaimer }} Weather data by <a class="underline" href="https://open-meteo.com/" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), cached for fifteen minutes.</p>
+</section>
+{% endif %}

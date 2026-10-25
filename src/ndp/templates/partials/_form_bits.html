@@ -1,0 +1,119 @@
+{% macro field(name, label, type='number', value='', step='any', placeholder='', required=True, min=None, max=None, help=None) -%}
+<label class="block">
+  <span class="text-sm font-medium text-slate-700">{{ label }}</span>
+  <input name="{{ name }}" type="{{ type }}" value="{{ value }}" placeholder="{{ placeholder }}"
+         {% if type == 'number' %}step="{{ step }}"{% endif %}
+         {% if min is not none %}min="{{ min }}"{% endif %} {% if max is not none %}max="{{ max }}"{% endif %}
+         {% if required %}required{% endif %}
+         class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+  {% if help %}<span class="text-xs text-slate-500">{{ help }}</span>{% endif %}
+</label>
+{%- endmacro %}
+
+{% macro submit(label='Estimate') -%}
+<button type="submit" class="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+  {{ label }}
+  <span class="htmx-indicator inline-block w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+</button>
+{%- endmacro %}
+
+{% macro card(title, subtitle=None) -%}
+<section class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+  <h2 class="text-base font-semibold text-slate-900">{{ title }}</h2>
+  {% if subtitle %}<p class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>{% endif %}
+  <div class="mt-4">{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{% macro metric(label, value, unit='') -%}
+<div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+  <div class="text-xs uppercase tracking-wide text-slate-500">{{ label }}</div>
+  <div class="mt-1 text-xl font-semibold text-slate-900">{{ value }}<span class="text-sm font-normal text-slate-500 ml-1">{{ unit }}</span></div>
+</div>
+{%- endmacro %}
+
+{# ---- additions for the modernised pages ---- #}
+
+{% macro textarea(name, label, value='', rows=4, placeholder='', required=True, help=None, id=None) -%}
+<label class="block">
+  <span class="text-sm font-medium text-slate-700">{{ label }}</span>
+  <textarea name="{{ name }}" rows="{{ rows }}" placeholder="{{ placeholder }}" {% if id %}id="{{ id }}"{% endif %}
+            {% if required %}required{% endif %}
+            class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">{{ value }}</textarea>
+  {% if help %}<span class="text-xs text-slate-500">{{ help }}</span>{% endif %}
+</label>
+{%- endmacro %}
+
+{# tone: ok | warn | danger | info | muted #}
+{% macro badge(text, tone='muted') -%}
+{% set tones = {
+  'ok': 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  'warn': 'bg-amber-50 text-amber-800 ring-amber-600/20',
+  'danger': 'bg-rose-50 text-rose-700 ring-rose-600/20',
+  'info': 'bg-brand-50 text-brand-700 ring-brand-600/20',
+  'muted': 'bg-slate-100 text-slate-600 ring-slate-500/20',
+} %}
+<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset {{ tones.get(tone, tones['muted']) }}">{{ text }}</span>
+{%- endmacro %}
+
+{# Status pill for module cards: ready / needs training / not configured / archived #}
+{% macro status_pill(status) -%}
+{% set map = {'ready': 'ok', 'needs training': 'warn', 'not configured': 'muted', 'archived': 'danger'} %}
+{{ badge(status, map.get(status, 'muted')) }}
+{%- endmacro %}
+
+{% macro error_box(message) -%}
+<div role="alert" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+  <strong class="font-semibold">Could not estimate.</strong> {{ message }}
+</div>
+{%- endmacro %}
+
+{% macro notice(message, tone='info') -%}
+{% set tones = {
+  'info': 'border-brand-600/20 bg-brand-50 text-brand-900',
+  'warn': 'border-amber-200 bg-amber-50 text-amber-900',
+  'danger': 'border-rose-200 bg-rose-50 text-rose-900',
+  'muted': 'border-slate-200 bg-slate-50 text-slate-700',
+} %}
+<div class="rounded-lg border p-4 text-sm {{ tones.get(tone, tones['info']) }}">{{ caller() if caller else message }}</div>
+{%- endmacro %}
+
+{# Format a number with 2 decimals; pass anything else through unchanged. #}
+{% macro fmt(value, decimals=2) -%}
+{%- if value is number and value is not sameas true and value is not sameas false -%}
+{{ ('%.' ~ decimals ~ 'f')|format(value) }}
+{%- else -%}
+{{ value }}
+{%- endif -%}
+{%- endmacro %}
+
+{# Echo the submitted inputs back. labels: {field_name: 'Label (unit)'} #}
+{% macro inputs_list(inputs, labels={}) -%}
+{% if inputs %}
+<dl class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+  {% for key, value in inputs.items() %}
+  <div>
+    <dt class="text-xs uppercase tracking-wide text-slate-500">{{ labels.get(key, key|replace('_', ' ')) }}</dt>
+    <dd class="font-medium text-slate-800">{{ fmt(value) }}</dd>
+  </div>
+  {% endfor %}
+</dl>
+{% endif %}
+{%- endmacro %}
+
+{# Horizontal CSS bar, value in 0..100 #}
+{% macro bar(pct, tone='bg-brand-600', label=None) -%}
+{% set width = [[pct|float, 0]|max, 100]|min %}
+<div class="flex items-center gap-2">
+  <div class="h-2.5 flex-1 rounded-full bg-slate-200 overflow-hidden" role="img" aria-label="{{ label or (fmt(width) ~ '%') }}">
+    <div class="h-full rounded-full {{ tone }}" style="width: {{ fmt(width, 1) }}%"></div>
+  </div>
+  <span class="w-14 text-right text-xs tabular-nums text-slate-600">{{ fmt(width, 1) }}%</span>
+</div>
+{%- endmacro %}
+
+{# Tab button (used with app.js data-tabs) #}
+{% macro tab(target, label, active=False) -%}
+<button type="button" role="tab" data-tab-target="{{ target }}" aria-selected="{{ 'true' if active else 'false' }}"
+        class="rounded-md px-3 py-1.5 text-sm font-medium {{ 'bg-brand-600 text-white' if active else 'text-slate-600 hover:bg-slate-100' }}">{{ label }}</button>
+{%- endmacro %}

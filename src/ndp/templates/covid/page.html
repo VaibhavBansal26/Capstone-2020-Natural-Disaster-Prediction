@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "partials/_form_bits.html" import submit, card, metric, fmt %}
+{% block title %}COVID-19{% endblock %}
+{% block content %}
+{% set v = inputs if inputs is defined and inputs else {} %}
+{% include "covid/_banner.html" %}
+<div class="mt-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">COVID-19 case curve and test centres</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-600">The 2020 capstone fitted a neural network to India's cumulative confirmed cases and mapped test centres, state and city snapshots. Pick a date to read the fitted curve, or open the maps.</p>
+  </div>
+  <a href="{{ url_for('covid_maps') }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Maps (2020 data) &rarr;</a>
+</div>
+
+<section class="mt-6" aria-labelledby="live-heading">
+  <div class="flex items-end justify-between gap-3">
+    <h2 id="live-heading" class="text-base font-semibold text-slate-900">Live totals</h2>
+    <button type="button" class="text-xs font-medium text-brand-700 hover:underline"
+            hx-get="{{ url_for('covid_stats') }}" hx-target="#live-stats" hx-swap="innerHTML">Refresh</button>
+  </div>
+  <div id="live-stats" class="mt-3" aria-live="polite"
+       hx-get="{{ url_for('covid_stats') }}" hx-trigger="load" hx-swap="innerHTML">
+    <p class="rounded-lg border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-500">Loading live totals…</p>
+  </div>
+</section>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+  <div class="lg:col-span-2 space-y-6">
+    {% call card('Nearest test centres', 'ICMR centres from the 2020 list, closest first. Enter a place or coordinates.') %}
+      <form method="post" action="{{ url_for('covid_centres') }}"
+            hx-post="{{ url_for('covid_centres') }}" hx-target="#centres" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Place</span>
+          <input name="place" type="text" placeholder="e.g. Vellore, Tamil Nadu" value="{{ v.get('place', '') }}"
+                 class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+        </label>
+        <details class="text-sm text-slate-600">
+          <summary class="cursor-pointer text-xs text-slate-500">or use coordinates</summary>
+          <div class="mt-2 grid grid-cols-2 gap-3">
+            <input name="lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" aria-label="Latitude"
+                   class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
+            <input name="lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" aria-label="Longitude"
+                   class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
+          </div>
+        </details>
+        {{ submit('Find test centres') }}
+      </form>
+      <div id="centres" class="mt-4" aria-live="polite"></div>
+    {% endcall %}
+    {% call card('Read the curve', 'Dates after the last data day are an extrapolation.') %}
+      <form method="post" action="{{ url_for('covid_predict') }}"
+            hx-post="{{ url_for('covid_predict') }}" hx-target="#result" hx-swap="innerHTML" hx-indicator="find .htmx-indicator"
+            class="space-y-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Date</span>
+          <input name="date" type="date" required min="2020-01-22" value="{{ v.get('date', last_data_date if last_data_date else '2020-06-01') }}"
+                 class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-600 focus:ring-1 focus:ring-brand-600">
+        </label>
+        {{ submit('Estimate cases') }}
+      </form>
+    {% endcall %}
+    <div id="result" aria-live="polite">
+      {% if result is defined or error is defined %}{% include "covid/_result.html" %}{% endif %}
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      {{ metric('Test centres on file', '{:,}'.format(centres_count|int) if centres_count is defined and centres_count is not none else '–') }}
+      {{ metric('Data ends', last_data_date if last_data_date else '–') }}
+    </div>
+  </div>
+  <div class="lg:col-span-3 space-y-6">
+    {% include "partials/_model_card.html" %}
+    {% include "partials/_plots.html" %}
+  </div>
+</div>
+{% endblock %}
