@@ -19,7 +19,13 @@ from ndp.web import render
 async def lifespan(app: FastAPI):
     get_settings().generated_dir.mkdir(parents=True, exist_ok=True)
     _warm_up()
-    yield
+    from ndp.services import watcher
+
+    await watcher.start(app)
+    try:
+        yield
+    finally:
+        await watcher.stop(app)
 
 
 def _warm_up() -> None:
@@ -53,9 +59,11 @@ def create_app() -> FastAPI:
     from ndp.routers import (
         alerts,
         api,
+        assistant,
         earthquake,
         flood,
         hurricane,
+        live,
         pages,
         sentiment,
         storm,
@@ -73,6 +81,8 @@ def create_app() -> FastAPI:
         weather,
         alerts,
         sentiment,
+        live,
+        assistant,
         api,
     ):
         app.include_router(router.router)

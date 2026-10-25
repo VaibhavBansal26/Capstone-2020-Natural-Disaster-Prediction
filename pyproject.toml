@@ -20,6 +20,7 @@ dependencies = [
     "matplotlib>=3.9",
     "folium>=0.17",
     "nltk>=3.9",
+    "anthropic>=2.3.0",
 ]
 
 [project.optional-dependencies]
